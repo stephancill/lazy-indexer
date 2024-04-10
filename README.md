@@ -22,6 +22,12 @@ Create a `.env` file with hub and database connection details
 cp .env.example .env
 ```
 
+Run the latest database migrations
+
+```bash
+yarn kysely:migrate
+```
+
 Run the indexer
 
 ```bash
@@ -31,7 +37,7 @@ yarn start
 ## Notes
 
 - Initial sync will take a long time (benchmarks to come). Use a local hub and postgres instance for the fastest results
-- If you start reading from a different hub or the indexer is offline for more than 3 days, it will need to do a full sync again
+- If you start reading from a different hub, or if the indexer is offline for more than 3 days, it will need to do a full sync again
 
 ## Todo
 
