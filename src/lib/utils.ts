@@ -124,7 +124,8 @@ export function checkMessages(
   fid: number
 ) {
   if (messages.isErr()) {
-    log.warn(messages.error, `Error fetching messages for FID ${fid}`)
+    // This happens consistently for the same fids for an unknown reason, but still saves their relevant data
+    log.debug(messages.error, `Error fetching messages for FID ${fid}`)
   }
 
   return messages.isOk() ? messages.value.messages : []

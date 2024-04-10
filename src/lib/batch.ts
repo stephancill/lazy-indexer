@@ -17,6 +17,7 @@ export function createBatcher<T>(
   const batcher = new Bottleneck.Batcher(
     options || {
       maxTime: 10_000,
+      // TODO: figure out an optimal size for postgres transactions
       maxSize: 1_000,
     }
   )
