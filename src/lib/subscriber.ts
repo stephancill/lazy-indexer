@@ -1,8 +1,8 @@
 import { HubEvent, HubEventType } from '@farcaster/hub-nodejs'
 
 import { insertEvent } from '../api/event.js'
-import { client } from './client.js'
 import { handleEvent } from './event.js'
+import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
 let latestEventId: number | undefined
@@ -11,7 +11,7 @@ let latestEventId: number | undefined
  * Listen for new events from a Hub
  */
 export async function subscribe(fromId: number | undefined) {
-  const result = await client.subscribe({
+  const result = await hubClient.subscribe({
     eventTypes: [
       HubEventType.MERGE_MESSAGE,
       HubEventType.PRUNE_MESSAGE,
@@ -53,7 +53,7 @@ export async function subscribe(fromId: number | undefined) {
 
 // Handle graceful shutdown and log the latest event ID
 async function handleShutdownSignal(signalName: string) {
-  client.close()
+  hubClient.close()
   log.info(`${signalName} received`)
 
   // TODO: figure out how to handle this in a more robust way.

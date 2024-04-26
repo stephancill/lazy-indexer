@@ -9,8 +9,8 @@ import {
   userDataAddBatcher,
   verificationAddBatcher,
 } from './lib/batch.js'
-import { client } from './lib/client.js'
 import { saveCurrentEventId } from './lib/event.js'
+import { hubClient } from './lib/hub-client.js'
 import { log } from './lib/logger.js'
 import { getAllCastsByFid, getAllReactionsByFid } from './lib/paginate.js'
 import { checkMessages } from './lib/utils.js'
@@ -67,9 +67,9 @@ async function getFullProfileFromHub(_fid: number) {
 
   const casts = await getAllCastsByFid(fid)
   const reactions = await getAllReactionsByFid(fid)
-  const links = await client.getLinksByFid({ ...fid, reverse: true })
-  const userData = await client.getUserDataByFid(fid)
-  const verifications = await client.getVerificationsByFid(fid)
+  const links = await hubClient.getLinksByFid({ ...fid, reverse: true })
+  const userData = await hubClient.getUserDataByFid(fid)
+  const verifications = await hubClient.getVerificationsByFid(fid)
 
   return {
     casts,
@@ -85,7 +85,7 @@ async function getFullProfileFromHub(_fid: number) {
  * @returns array of fids
  */
 async function getAllFids() {
-  const maxFidResult = await client.getFids({
+  const maxFidResult = await hubClient.getFids({
     pageSize: 1,
     reverse: true,
   })

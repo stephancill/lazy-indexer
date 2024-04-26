@@ -10,7 +10,7 @@ if (!HUB_RPC) {
   throw new Error('HUB_RPC env variable is not set')
 }
 
-export const client =
+export const hubClient =
   HUB_SSL === 'true'
     ? getSSLHubRpcClient(HUB_RPC)
     : getInsecureHubRpcClient(HUB_RPC)

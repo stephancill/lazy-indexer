@@ -1,7 +1,7 @@
 // TODO: Clean up the functions in this file, it's very repetitive
 import { FidRequest, Message } from '@farcaster/hub-nodejs'
 
-import { client } from './client.js'
+import { hubClient } from './hub-client.js'
 import { checkMessages } from './utils.js'
 
 export async function getAllCastsByFid(fid: FidRequest) {
@@ -10,7 +10,7 @@ export async function getAllCastsByFid(fid: FidRequest) {
   let nextPageToken: Uint8Array | undefined
 
   while (true) {
-    const res = await client.getCastsByFid({
+    const res = await hubClient.getCastsByFid({
       ...fid,
       pageSize,
       pageToken: nextPageToken,
@@ -35,7 +35,7 @@ export async function getAllReactionsByFid(fid: FidRequest) {
   let nextPageToken: Uint8Array | undefined
 
   while (true) {
-    const res = await client.getReactionsByFid({
+    const res = await hubClient.getReactionsByFid({
       ...fid,
       pageSize,
       pageToken: nextPageToken,

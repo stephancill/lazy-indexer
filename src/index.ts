@@ -3,7 +3,7 @@ import 'dotenv/config'
 
 import { getLatestEvent } from './api/event.js'
 import { backfill } from './backfill.js'
-import { client } from './lib/client.js'
+import { hubClient } from './lib/hub-client.js'
 import { log } from './lib/logger.js'
 import { subscribe } from './lib/subscriber.js'
 
@@ -12,7 +12,7 @@ let latestEventId = await getLatestEvent()
 
 // Hubs are expected to prune messages after 3 days
 const latestEventRequest = EventRequest.create({ id: latestEventId })
-const latestEvent = await client.getEvent(latestEventRequest)
+const latestEvent = await hubClient.getEvent(latestEventRequest)
 
 // If the last saved event is no longer available, we need to backfill from the beginning
 if (!latestEvent.isOk()) {
