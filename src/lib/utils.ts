@@ -1,4 +1,5 @@
 import {
+  FidRequest,
   HubResult,
   Message,
   MessagesResponse,
@@ -8,7 +9,9 @@ import {
 import { Insertable } from 'kysely'
 
 import { Tables } from '../db/db.types.js'
+import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
+import { getAllCastsByFid, getAllReactionsByFid } from './paginate.js'
 
 export function formatCasts(msgs: Message[]) {
   return msgs.map((msg) => {
@@ -137,4 +140,24 @@ export function checkOnchainEvent(event: HubResult<OnChainEvent>, fid: number) {
   }
 
   return event.isOk() ? event.value : null
+}
+
+/**
+ * Index all messages from a profile
+ * @param fid Farcaster ID
+ */
+export async function getFullProfileFromHub(_fid: number) {
+  const fid = FidRequest.create({ fid: _fid })
+
+  const links = await hubClient.getLinksByFid({ ...fid, reverse: true })
+  const userData = await hubClient.getUserDataByFid(fid)
+  const verifications = await hubClient.getVerificationsByFid(fid)
+
+  return {
+    casts: await getAllCastsByFid(fid),
+    reactions: await getAllReactionsByFid(fid),
+    links: checkMessages(links, _fid),
+    userData: checkMessages(userData, _fid),
+    verifications: checkMessages(verifications, _fid),
+  }
 }

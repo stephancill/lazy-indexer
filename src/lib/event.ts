@@ -84,6 +84,7 @@ export async function handleEvent(event: HubEvent) {
   }
 }
 
+// TODO: find a better way to do this (reference shuttle implementation)
 export async function saveCurrentEventId() {
   let triggered = false
 

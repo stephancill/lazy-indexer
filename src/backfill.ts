@@ -1,21 +1,39 @@
-import { FidRequest } from '@farcaster/hub-nodejs'
-import { Presets, SingleBar } from 'cli-progress'
-import 'dotenv/config'
+import { createBullBoard } from '@bull-board/api'
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js'
+import { Job } from 'bullmq'
 
-import {
-  castAddBatcher,
-  linkAddBatcher,
-  reactionAddBatcher,
-  userDataAddBatcher,
-  verificationAddBatcher,
-} from './lib/batch.js'
+import { insertCasts } from './api/cast.js'
+import { insertLinks } from './api/link.js'
+import { insertReactions } from './api/reaction.js'
+import { insertUserDatas } from './api/user-data.js'
+import { insertVerifications } from './api/verification.js'
+import { createQueue, createWorker, serverAdapter } from './lib/bullmq.js'
 import { saveCurrentEventId } from './lib/event.js'
 import { hubClient } from './lib/hub-client.js'
 import { log } from './lib/logger.js'
-import { getAllCastsByFid, getAllReactionsByFid } from './lib/paginate.js'
-import { checkMessages } from './lib/utils.js'
+import { getFullProfileFromHub } from './lib/utils.js'
 
-const progressBar = new SingleBar({ fps: 1 }, Presets.shades_classic)
+type BackfillJob = {
+  fids: number[]
+}
+
+const backfillQueue = createQueue<BackfillJob>('backfill')
+createWorker<BackfillJob>('backfill', handleJob)
+
+createBullBoard({
+  queues: [new BullMQAdapter(backfillQueue)],
+  serverAdapter,
+})
+
+async function addFidsToBackfillQueue(maxFid?: number) {
+  const fids = (await getAllFids()).slice(0, maxFid)
+  const batchSize = 10
+
+  for (let i = 0; i < fids.length; i += batchSize) {
+    const batch = fids.slice(i, i + batchSize)
+    await backfillQueue.add('backfill', { fids: batch })
+  }
+}
 
 /**
  * Backfill the database with data from a hub. This may take a while.
@@ -25,59 +43,7 @@ export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   await saveCurrentEventId()
 
   log.info('Backfilling...')
-  const startTime = new Date().getTime()
-  const allFids = await getAllFids()
-  progressBar.start(maxFid || allFids.length, allFids[0])
-
-  for (const fid of allFids) {
-    if (maxFid && fid > maxFid) {
-      log.warn(`Reached max FID ${maxFid}, stopping backfill`)
-      break
-    }
-
-    const p = await getFullProfileFromHub(fid).catch((err) => {
-      log.error(err, `Error getting profile for FID ${fid}`)
-      return null
-    })
-
-    if (!p) continue
-
-    p.casts.forEach((msg) => castAddBatcher.add(msg))
-    p.links.forEach((msg) => linkAddBatcher.add(msg))
-    p.reactions.forEach((msg) => reactionAddBatcher.add(msg))
-    p.userData.forEach((msg) => userDataAddBatcher.add(msg))
-    p.verifications.forEach((msg) => verificationAddBatcher.add(msg))
-
-    progressBar.increment()
-  }
-
-  const endTime = new Date().getTime()
-  const elapsedMilliseconds = endTime - startTime
-  const elapsedMinutes = elapsedMilliseconds / 60000
-  log.info(`Done backfilling in ${elapsedMinutes} minutes`)
-  progressBar.stop()
-}
-
-/**
- * Index all messages from a profile
- * @param fid Farcaster ID
- */
-async function getFullProfileFromHub(_fid: number) {
-  const fid = FidRequest.create({ fid: _fid })
-
-  const casts = await getAllCastsByFid(fid)
-  const reactions = await getAllReactionsByFid(fid)
-  const links = await hubClient.getLinksByFid({ ...fid, reverse: true })
-  const userData = await hubClient.getUserDataByFid(fid)
-  const verifications = await hubClient.getVerificationsByFid(fid)
-
-  return {
-    casts,
-    reactions,
-    links: checkMessages(links, _fid),
-    userData: checkMessages(userData, _fid),
-    verifications: checkMessages(verifications, _fid),
-  }
+  await addFidsToBackfillQueue(maxFid)
 }
 
 /**
@@ -96,4 +62,23 @@ async function getAllFids() {
 
   const maxFid = maxFidResult.value.fids[0]
   return Array.from({ length: Number(maxFid) }, (_, i) => i + 1)
+}
+
+async function handleJob(job: Job) {
+  const { fids } = job.data
+
+  for (const fid of fids) {
+    const p = await getFullProfileFromHub(fid).catch((err) => {
+      log.error(err, `Error getting profile for FID ${fid}`)
+      return null
+    })
+
+    if (!p) continue
+
+    await insertCasts(p.casts)
+    await insertLinks(p.links)
+    await insertReactions(p.reactions)
+    await insertUserDatas(p.userData)
+    await insertVerifications(p.verifications)
+  }
 }
