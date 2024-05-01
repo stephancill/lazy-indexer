@@ -38,6 +38,6 @@ export const serverAdapter = new ExpressAdapter()
 serverAdapter.setBasePath('/')
 app.use('/', serverAdapter.getRouter())
 
-app.listen(3000, () => {
-  log.info('Server started on http://localhost:3000')
+app.listen(3001, () => {
+  log.info('Server started on http://localhost:3001')
 })
