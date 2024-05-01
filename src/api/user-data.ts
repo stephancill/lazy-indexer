@@ -6,6 +6,7 @@ import { formatUserDatas } from '../lib/utils.js'
 
 export async function insertUserDatas(msgs: Message[]) {
   const userDatas = formatUserDatas(msgs)
+  if (userDatas.length === 0) return
 
   try {
     await db

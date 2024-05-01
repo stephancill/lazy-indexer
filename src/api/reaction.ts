@@ -2,7 +2,7 @@ import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { formatReactions } from '../lib/utils.js'
+import { breakIntoChunks, formatReactions } from '../lib/utils.js'
 
 /**
  * Insert a reaction in the database
@@ -10,17 +10,21 @@ import { formatReactions } from '../lib/utils.js'
  */
 export async function insertReactions(msgs: Message[]) {
   const reactions = formatReactions(msgs)
+  if (reactions.length === 0) return
+  const chunks = breakIntoChunks(reactions, 1000)
 
-  try {
-    await db
-      .insertInto('reactions')
-      .values(reactions)
-      .onConflict((oc) => oc.column('hash').doNothing())
-      .execute()
+  for (const chunk of chunks) {
+    try {
+      await db
+        .insertInto('reactions')
+        .values(chunk)
+        .onConflict((oc) => oc.column('hash').doNothing())
+        .execute()
 
-    log.debug(`REACTIONS INSERTED`)
-  } catch (error) {
-    log.error(error, 'ERROR INSERTING REACTIONS')
+      log.debug(`REACTIONS INSERTED`)
+    } catch (error) {
+      log.error(error, 'ERROR INSERTING REACTIONS')
+    }
   }
 }
 

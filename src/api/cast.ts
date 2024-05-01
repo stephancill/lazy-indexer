@@ -2,7 +2,7 @@ import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { formatCasts } from '../lib/utils.js'
+import { breakIntoChunks, formatCasts } from '../lib/utils.js'
 
 /**
  * Insert casts in the database
@@ -10,17 +10,21 @@ import { formatCasts } from '../lib/utils.js'
  */
 export async function insertCasts(msgs: Message[]) {
   const casts = formatCasts(msgs)
+  if (casts.length === 0) return
+  const chunks = breakIntoChunks(casts, 1000)
 
-  try {
-    await db
-      .insertInto('casts')
-      .values(casts)
-      .onConflict((oc) => oc.column('hash').doNothing())
-      .execute()
+  for (const chunk of chunks) {
+    try {
+      await db
+        .insertInto('casts')
+        .values(chunk)
+        .onConflict((oc) => oc.column('hash').doNothing())
+        .execute()
 
-    log.debug(`CASTS INSERTED`)
-  } catch (error) {
-    log.error(error, 'ERROR INSERTING CAST')
+      log.debug(`CASTS INSERTED`)
+    } catch (error) {
+      log.error(error, 'ERROR INSERTING CAST')
+    }
   }
 }
 

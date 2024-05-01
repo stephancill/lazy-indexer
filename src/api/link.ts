@@ -6,6 +6,7 @@ import { formatLinks } from '../lib/utils.js'
 
 export async function insertLinks(msgs: Message[]) {
   const links = formatLinks(msgs)
+  if (links.length === 0) return
 
   try {
     await db
@@ -16,7 +17,7 @@ export async function insertLinks(msgs: Message[]) {
 
     log.debug(`LINKS INSERTED`)
   } catch (error) {
-    log.error(error, 'ERROR INSERTING LINK')
+    log.error(error, 'ERROR INSERTING LINKS')
   }
 }
 

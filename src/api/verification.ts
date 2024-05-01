@@ -10,6 +10,7 @@ import { formatVerifications } from '../lib/utils.js'
  */
 export async function insertVerifications(msgs: Message[]) {
   const verifications = formatVerifications(msgs)
+  if (verifications.length === 0) return
 
   try {
     await db
@@ -20,7 +21,7 @@ export async function insertVerifications(msgs: Message[]) {
 
     log.debug(`VERIFICATIONS INSERTED`)
   } catch (error) {
-    log.error(error, 'ERROR INSERTING VERIFICATION')
+    log.error(error, 'ERROR INSERTING VERIFICATIONS')
   }
 }
 
