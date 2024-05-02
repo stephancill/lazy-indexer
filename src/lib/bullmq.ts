@@ -1,17 +1,11 @@
 import { ExpressAdapter } from '@bull-board/express'
 import { Job, Queue, QueueOptions, Worker } from 'bullmq'
 import express from 'express'
-import { Redis } from 'ioredis'
 
 import { log } from './logger.js'
+import { redis } from './redis.js'
 
-const concurrency = 10
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
-
-export const redis = new Redis(REDIS_URL, {
-  connectTimeout: 5_000,
-  maxRetriesPerRequest: null, // BullMQ wants this set
-})
+const concurrency = Number(process.env.BACKFILL_CONCURRENCY || 5)
 
 const options: QueueOptions = {
   connection: redis,
