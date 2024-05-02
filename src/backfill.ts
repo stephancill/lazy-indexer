@@ -67,7 +67,9 @@ async function getAllFids() {
 async function handleJob(job: Job) {
   const { fids } = job.data
 
-  for (const fid of fids) {
+  for (let i = 0; i < fids.length; i++) {
+    const fid = fids[i]
+
     const p = await getFullProfileFromHub(fid).catch((err) => {
       log.error(err, `Error getting profile for FID ${fid}`)
       return null
@@ -81,6 +83,6 @@ async function handleJob(job: Job) {
     await insertUserDatas(p.userData)
     await insertVerifications(p.verifications)
 
-    await job.updateProgress((fid / fids.length) * 100)
+    await job.updateProgress((i / fids.length) * 100)
   }
 }
