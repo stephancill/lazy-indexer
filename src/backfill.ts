@@ -83,6 +83,6 @@ async function handleJob(job: Job) {
     await insertUserDatas(p.userData)
     await insertVerifications(p.verifications)
 
-    await job.updateProgress((i / fids.length) * 100)
+    await job.updateProgress((i + 1 / fids.length) * 100)
   }
 }
