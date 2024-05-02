@@ -27,7 +27,7 @@ createBullBoard({
 
 async function addFidsToBackfillQueue(maxFid?: number) {
   const fids = (await getAllFids()).slice(0, maxFid)
-  const batchSize = 10
+  const batchSize = 100
 
   for (let i = 0; i < fids.length; i += batchSize) {
     const batch = fids.slice(i, i + batchSize)
