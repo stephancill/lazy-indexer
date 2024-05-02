@@ -80,5 +80,7 @@ async function handleJob(job: Job) {
     await insertReactions(p.reactions)
     await insertUserDatas(p.userData)
     await insertVerifications(p.verifications)
+
+    await job.updateProgress((fid / fids.length) * 100)
   }
 }
