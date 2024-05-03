@@ -1,25 +1,25 @@
 import { HubEvent, HubEventType } from '@farcaster/hub-nodejs'
 
-import { insertEvent } from '../api/event.js'
+import { saveLatestEventId } from '../api/event.js'
+import { createQueue, createWorker } from './bullmq.js'
 import { handleEvent } from './event.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
-let latestEventId: number | undefined
+export const streamQueue = createQueue<HubEvent>('stream')
+createWorker<HubEvent>('stream', handleEvent)
 
 /**
  * Listen for new events from a Hub
  */
-export async function subscribe(fromId: number | undefined) {
+export async function subscribe(fromEventId: number | undefined) {
   const result = await hubClient.subscribe({
     eventTypes: [
       HubEventType.MERGE_MESSAGE,
       HubEventType.PRUNE_MESSAGE,
       HubEventType.REVOKE_MESSAGE,
-      // HubEventType.MERGE_USERNAME_PROOF,
-      // HubEventType.MERGE_ON_CHAIN_EVENT,
     ],
-    fromId,
+    fromId: fromEventId,
   })
 
   if (result.isErr()) {
@@ -29,12 +29,15 @@ export async function subscribe(fromId: number | undefined) {
 
   result.match(
     (stream) => {
-      log.info(`Subscribed to stream ${fromId ? `from event ${fromId}` : ''}`)
+      log.info(
+        `Subscribed to stream ${fromEventId ? `from event ${fromEventId}` : ''}`
+      )
 
       stream.on('data', async (e: HubEvent) => {
-        // Keep track of latest event so we can pick up where we left off if the stream is interrupted
-        latestEventId = e.id
-        await handleEvent(e)
+        // TODO: figure out if we can avoid `saveLatestEventId()` on each event
+        // and instead get the latest event it from the latest job in the queue
+        await saveLatestEventId(e.id)
+        await streamQueue.add('stream', e)
       })
 
       stream.on('close', async () => {
@@ -50,33 +53,3 @@ export async function subscribe(fromId: number | undefined) {
     }
   )
 }
-
-// Handle graceful shutdown and log the latest event ID
-async function handleShutdownSignal(signalName: string) {
-  hubClient.close()
-  log.info(`${signalName} received`)
-
-  // TODO: figure out how to handle this in a more robust way.
-  // As-is, the latest event ID will be logged but we don't know if
-  // it was successfully processed due to the Bottleneck.Batcher logic
-  if (latestEventId) {
-    log.info(`Latest event ID: ${latestEventId}`)
-    await insertEvent(latestEventId)
-  } else {
-    log.warn('No hub event in cache')
-  }
-
-  process.exit(0)
-}
-
-process.on('SIGINT', async () => {
-  await handleShutdownSignal('SIGINT')
-})
-
-process.on('SIGTERM', async () => {
-  await handleShutdownSignal('SIGTERM')
-})
-
-process.on('SIGQUIT', async () => {
-  await handleShutdownSignal('SIGQUIT')
-})

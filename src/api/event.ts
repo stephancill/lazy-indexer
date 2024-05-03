@@ -1,22 +1,13 @@
-import { db } from '../db/kysely.js'
-import { log } from '../lib/logger.js'
+import { redis } from '../lib/redis.js'
+
+const redisKey = 'hub:latest-event-id'
 
 /**
  * Insert an event ID in the database
  * @param eventId Hub event ID
  */
-export async function insertEvent(eventId: number) {
-  try {
-    await db
-      .insertInto('events')
-      .values({ id: eventId })
-      .onConflict((oc) => oc.column('id').doNothing())
-      .execute()
-
-    log.debug(`EVENT INSERTED -- ${eventId}`)
-  } catch (error) {
-    log.error(error, 'ERROR INSERTING EVENT')
-  }
+export async function saveLatestEventId(eventId: number) {
+  await redis.set(redisKey, eventId)
 }
 
 /**
@@ -24,16 +15,6 @@ export async function insertEvent(eventId: number) {
  * @returns Latest event ID
  */
 export async function getLatestEvent(): Promise<number | undefined> {
-  try {
-    const event = await db
-      .selectFrom('events')
-      .selectAll()
-      .orderBy('id', 'desc')
-      .limit(1)
-      .executeTakeFirst()
-
-    return event?.id
-  } catch (error) {
-    log.error(error, 'ERROR GETTING LATEST EVENT')
-  }
+  const res = await redis.get(redisKey)
+  return res ? parseInt(res) : undefined
 }
