@@ -47,6 +47,7 @@ export const up = async (db: Kysely<any>) => {
   // CASTS
   await db.schema
     .createTable('casts')
+    .ifNotExists()
     .addColumn('id', 'uuid', (col) =>
       col.defaultTo(sql`generate_ulid()`).primaryKey()
     )
@@ -75,6 +76,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('casts_active_fid_timestamp_index')
+    .ifNotExists()
     .on('casts')
     .columns(['fid', 'timestamp'])
     .where(sql.ref('deleted_at'), 'is', null) // Only index active (non-deleted) casts
@@ -82,12 +84,14 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('casts_timestamp_index')
+    .ifNotExists()
     .on('casts')
     .columns(['timestamp'])
     .execute()
 
   await db.schema
     .createIndex('casts_parent_hash_index')
+    .ifNotExists()
     .on('casts')
     .column('parentHash')
     .where('parentHash', 'is not', null)
@@ -95,6 +99,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('casts_root_parent_hash_index')
+    .ifNotExists()
     .on('casts')
     .columns(['rootParentHash'])
     .where('rootParentHash', 'is not', null)
@@ -102,6 +107,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('casts_parent_url_index')
+    .ifNotExists()
     .on('casts')
     .columns(['parentUrl'])
     .where('parentUrl', 'is not', null)
@@ -109,6 +115,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('casts_root_parent_url_index')
+    .ifNotExists()
     .on('casts')
     .columns(['rootParentUrl'])
     .where('rootParentUrl', 'is not', null)
@@ -117,6 +124,7 @@ export const up = async (db: Kysely<any>) => {
   // REACTIONS
   await db.schema
     .createTable('reactions')
+    .ifNotExists()
     .addColumn('id', 'uuid', (col) =>
       col.defaultTo(sql`generate_ulid()`).primaryKey()
     )
@@ -138,6 +146,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('reactions_active_fid_timestamp_index')
+    .ifNotExists()
     .on('reactions')
     .columns(['fid', 'timestamp'])
     .where(sql.ref('deleted_at'), 'is', null) // Only index active (non-deleted) reactions
@@ -145,6 +154,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('reactions_target_cast_hash_index')
+    .ifNotExists()
     .on('reactions')
     .column('targetCastHash')
     .where('targetCastHash', 'is not', null)
@@ -152,6 +162,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('reactions_target_url_index')
+    .ifNotExists()
     .on('reactions')
     .columns(['targetUrl'])
     .where('targetUrl', 'is not', null)
@@ -160,6 +171,7 @@ export const up = async (db: Kysely<any>) => {
   // LINKS
   await db.schema
     .createTable('links')
+    .ifNotExists()
     .addColumn('id', 'uuid', (col) =>
       col.defaultTo(sql`generate_ulid()`).primaryKey()
     )
@@ -181,6 +193,7 @@ export const up = async (db: Kysely<any>) => {
   // VERIFICATIONS
   await db.schema
     .createTable('verifications')
+    .ifNotExists()
     .addColumn('id', 'uuid', (col) =>
       col.defaultTo(sql`generate_ulid()`).primaryKey()
     )
@@ -205,6 +218,7 @@ export const up = async (db: Kysely<any>) => {
 
   await db.schema
     .createIndex('verifications_fid_timestamp_index')
+    .ifNotExists()
     .on('verifications')
     .columns(['fid', 'timestamp'])
     .execute()
@@ -212,6 +226,7 @@ export const up = async (db: Kysely<any>) => {
   // USER DATA
   await db.schema
     .createTable('userData')
+    .ifNotExists()
     .addColumn('id', 'uuid', (col) =>
       col.defaultTo(sql`generate_ulid()`).primaryKey()
     )
@@ -233,12 +248,37 @@ export const up = async (db: Kysely<any>) => {
   // Events
   await db.schema
     .createTable('events')
+    .ifNotExists()
     .addColumn('id', 'int8', (col) => col.primaryKey())
+    .execute()
+
+  // Hubs
+  await db.schema
+    .createTable('hubs')
+    .ifNotExists()
+    .addColumn('id', 'uuid', (col) =>
+      col.defaultTo(sql`gen_random_uuid()`).primaryKey()
+    )
+    .addColumn('gossipAddress', 'text', (col) => col.notNull())
+    .addColumn('rpcAddress', 'text', (col) => col.notNull())
+    .addColumn('excludedHashes', sql`TEXT[]`, (col) => col.notNull())
+    .addColumn('count', 'int4', (col) => col.notNull().defaultTo(0))
+    .addColumn('hubVersion', 'text', (col) => col.notNull())
+    .addColumn('network', 'text', (col) => col.notNull())
+    .addColumn('appVersion', 'text', (col) => col.notNull())
+    .addColumn('timestamp', 'int8', (col) => col.notNull())
+    .addColumn('createdAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('updatedAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
     .execute()
 }
 
 export const down = async (db: Kysely<any>) => {
   // Delete in reverse order of above so that foreign keys are not violated.
+  await db.schema.dropTable('hubs').ifExists().execute()
   await db.schema.dropTable('userData').ifExists().execute()
   await db.schema.dropTable('verifications').ifExists().execute()
   await db.schema.dropTable('links').ifExists().execute()

@@ -1,12 +1,4 @@
-import {
-  HashScheme,
-  MessageType,
-  Protocol,
-  ReactionType,
-  SignatureScheme,
-  UserDataType,
-  UserNameType,
-} from '@farcaster/hub-nodejs'
+import { ReactionType, UserDataType } from '@farcaster/hub-nodejs'
 import { ColumnType, Generated, GeneratedAlways } from 'kysely'
 
 type Fid = number
@@ -115,6 +107,19 @@ type EventRow = {
   id: number
 }
 
+// Hubs ------------------------------------------------------------------------------------------
+type HubRow = {
+  id: number
+  gossipAddress: string
+  rpcAddress: string
+  excludedHashes: string[]
+  count: number
+  hubVersion: string
+  network: string
+  appVersion: string
+  timestamp: number
+}
+
 // ALL TABLES --------------------------------------------------------------------------------------
 export interface Tables {
   casts: CastRow
@@ -123,4 +128,5 @@ export interface Tables {
   verifications: VerificationRow
   userData: UserDataRow
   events: EventRow
+  hubs: HubRow
 }

@@ -2,7 +2,7 @@ import { EventRequest } from '@farcaster/hub-nodejs'
 import 'dotenv/config'
 
 import { getLatestEvent } from './api/event.js'
-import { backfill } from './backfill.js'
+import { backfill } from './lib/backfill.js'
 import { hubClient } from './lib/hub-client.js'
 import { log } from './lib/logger.js'
 import { subscribe } from './lib/subscriber.js'
