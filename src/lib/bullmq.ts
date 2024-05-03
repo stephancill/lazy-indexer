@@ -1,40 +1,30 @@
-import { ExpressAdapter } from '@bull-board/express'
 import { Job, Queue, QueueOptions, Worker } from 'bullmq'
-import express from 'express'
 
-import { log } from './logger.js'
 import { redis } from './redis.js'
 
-const concurrency = Number(process.env.BACKFILL_CONCURRENCY || 5)
-
-const options: QueueOptions = {
+const bullMqOptions: QueueOptions = {
   connection: redis,
   prefix: 'hub',
 }
 
 export function createQueue<T>(name: string) {
-  return new Queue<T>(name, options)
+  return new Queue<T>(name, bullMqOptions)
 }
 
 export function createWorker<T>(
   name: string,
-  jobHandler: (job: Job) => Promise<void>
+  jobHandler: (job: Job) => Promise<void>,
+  opts?: {
+    concurrency?: number
+  }
 ) {
+  const _concurrency = opts?.concurrency || 1
+
   return new Worker<T>(name, jobHandler, {
-    ...options,
-    useWorkerThreads: concurrency > 1,
+    ...bullMqOptions,
+    useWorkerThreads: _concurrency > 1,
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 100 },
-    concurrency,
+    concurrency: _concurrency,
   })
 }
-
-const app = express()
-export const serverAdapter = new ExpressAdapter()
-
-serverAdapter.setBasePath('/')
-app.use('/', serverAdapter.getRouter())
-
-app.listen(3001, () => {
-  log.info('Server started on http://localhost:3001')
-})

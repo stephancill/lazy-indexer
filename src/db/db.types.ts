@@ -102,11 +102,6 @@ type UserDataRow = {
   value: string
 }
 
-// EVENTS ------------------------------------------------------------------------------------------
-type EventRow = {
-  id: number
-}
-
 // Hubs ------------------------------------------------------------------------------------------
 type HubRow = {
   id: number
@@ -127,6 +122,5 @@ export interface Tables {
   links: LinkRow
   verifications: VerificationRow
   userData: UserDataRow
-  events: EventRow
   hubs: HubRow
 }
