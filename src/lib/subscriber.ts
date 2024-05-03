@@ -7,7 +7,7 @@ import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
 export const streamQueue = createQueue<HubEvent>('stream')
-createWorker<HubEvent>('stream', handleEvent)
+createWorker<HubEvent>('stream', handleEvent, { concurrency: 5 })
 
 /**
  * Listen for new events from a Hub

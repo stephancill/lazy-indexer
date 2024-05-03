@@ -10,13 +10,14 @@ import { createQueue, createWorker } from '../lib/bullmq.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { getFullProfileFromHub } from '../lib/utils.js'
+import { saveCurrentEventId } from './event.js'
 
 type BackfillJob = {
   fids: number[]
 }
 
 export const backfillQueue = createQueue<BackfillJob>('backfill')
-createWorker<BackfillJob>('backfill', handleJob, {
+export const backfillWorker = createWorker<BackfillJob>('backfill', handleJob, {
   concurrency: Number(process.env.BACKFILL_CONCURRENCY || 5),
 })
 
@@ -37,6 +38,7 @@ async function addFidsToBackfillQueue(maxFid?: number) {
  */
 export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   log.info('Starting backfill')
+  await saveCurrentEventId()
   await addFidsToBackfillQueue(maxFid)
   await getHubs()
 }

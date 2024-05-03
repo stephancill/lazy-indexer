@@ -85,38 +85,38 @@ export async function handleEvent(job: Job<HubEvent>) {
 }
 
 // TODO: find a better way to do this (reference shuttle implementation)
-// export async function saveCurrentEventId() {
-//   let triggered = false
+export async function saveCurrentEventId() {
+  let triggered = false
 
-//   const result = await hubClient.subscribe({
-//     eventTypes: [
-//       HubEventType.NONE,
-//       HubEventType.MERGE_MESSAGE,
-//       HubEventType.PRUNE_MESSAGE,
-//       HubEventType.REVOKE_MESSAGE,
-//       HubEventType.MERGE_USERNAME_PROOF,
-//       HubEventType.MERGE_ON_CHAIN_EVENT,
-//     ],
-//   })
+  const result = await hubClient.subscribe({
+    eventTypes: [
+      HubEventType.NONE,
+      HubEventType.MERGE_MESSAGE,
+      HubEventType.PRUNE_MESSAGE,
+      HubEventType.REVOKE_MESSAGE,
+      HubEventType.MERGE_USERNAME_PROOF,
+      HubEventType.MERGE_ON_CHAIN_EVENT,
+    ],
+  })
 
-//   if (result.isErr()) {
-//     log.error(result.error, 'Error starting stream')
-//     return
-//   }
+  if (result.isErr()) {
+    log.error(result.error, 'Error starting stream')
+    return
+  }
 
-//   result.match(
-//     (stream) => {
-//       stream.on('data', async (e: HubEvent) => {
-//         if (triggered) return
+  result.match(
+    (stream) => {
+      stream.on('data', async (e: HubEvent) => {
+        if (triggered) return
 
-//         triggered = true
+        triggered = true
 
-//         await saveLatestEventId(e.id)
-//         stream.cancel()
-//       })
-//     },
-//     (e) => {
-//       log.error(e, 'Error streaming data.')
-//     }
-//   )
-// }
+        await saveLatestEventId(e.id)
+        stream.cancel()
+      })
+    },
+    (e) => {
+      log.error(e, 'Error streaming data.')
+    }
+  )
+}
