@@ -1,10 +1,15 @@
 // TODO: Clean up the functions in this file, it's very repetitive
-import { FidRequest, Message } from '@farcaster/hub-nodejs'
+import {
+  FidRequest,
+  HubResult,
+  HubRpcClient,
+  Message,
+  OnChainEvent,
+  OnChainEventType,
+} from '@farcaster/hub-nodejs'
 
 import { hubClient } from './hub-client.js'
-import { checkMessages } from './utils.js'
-
-const pageSize = 10_000
+import { MAX_PAGE_SIZE, checkMessages } from './utils.js'
 
 export async function getAllCastsByFid(fid: FidRequest) {
   const casts: Message[] = new Array()
@@ -13,14 +18,14 @@ export async function getAllCastsByFid(fid: FidRequest) {
   while (true) {
     const res = await hubClient.getCastsByFid({
       ...fid,
-      pageSize,
+      pageSize: MAX_PAGE_SIZE,
       pageToken: nextPageToken,
     })
 
     const messages = checkMessages(res, fid.fid)
     casts.push(...messages)
 
-    if (messages.length < pageSize) {
+    if (messages.length < MAX_PAGE_SIZE) {
       break
     }
 
@@ -37,14 +42,14 @@ export async function getAllReactionsByFid(fid: FidRequest) {
   while (true) {
     const res = await hubClient.getReactionsByFid({
       ...fid,
-      pageSize,
+      pageSize: MAX_PAGE_SIZE,
       pageToken: nextPageToken,
     })
 
     const messages = checkMessages(res, fid.fid)
     reactions.push(...messages)
 
-    if (messages.length < pageSize) {
+    if (messages.length < MAX_PAGE_SIZE) {
       break
     }
 
@@ -61,14 +66,14 @@ export async function getAllLinksByFid(fid: FidRequest) {
   while (true) {
     const res = await hubClient.getLinksByFid({
       ...fid,
-      pageSize,
+      pageSize: MAX_PAGE_SIZE,
       pageToken: nextPageToken,
     })
 
     const messages = checkMessages(res, fid.fid)
     links.push(...messages)
 
-    if (messages.length < pageSize) {
+    if (messages.length < MAX_PAGE_SIZE) {
       break
     }
 
@@ -76,4 +81,73 @@ export async function getAllLinksByFid(fid: FidRequest) {
   }
 
   return links
+}
+
+// TODO: refactor this to be more consistent with the other functions
+// Currently its a rip from the old replicator
+export async function* getOnChainEventsByFidInBatchesOf(
+  hub: HubRpcClient,
+  {
+    fid,
+    pageSize,
+    eventTypes,
+  }: {
+    fid: number
+    pageSize: number
+    eventTypes: OnChainEventType[]
+  }
+) {
+  for (const eventType of eventTypes) {
+    let result = await retryHubCallWithExponentialBackoff(() =>
+      hub.getOnChainEvents({ pageSize, fid, eventType })
+    )
+    for (;;) {
+      if (result.isErr()) {
+        throw new Error(
+          `Unable to backfill events for FID ${fid} of type ${eventType}`,
+          { cause: result.error }
+        )
+      }
+
+      const { events, nextPageToken: pageToken } = result.value
+      yield events as OnChainEvent[]
+
+      if (!pageToken?.length) break
+      result = await retryHubCallWithExponentialBackoff(() =>
+        hub.getOnChainEvents({ pageSize, pageToken, fid, eventType })
+      )
+    }
+  }
+}
+
+async function retryHubCallWithExponentialBackoff<T>(
+  fn: () => Promise<HubResult<T>>,
+  attempt = 1,
+  maxAttempts = 10,
+  baseDelayMs = 100
+): Promise<HubResult<T>> {
+  let currentAttempt = attempt
+  try {
+    const result = await fn()
+    if (result.isErr()) {
+      throw new Error(`maybe retryable error : ${JSON.stringify(result.error)}`)
+    }
+    return result
+  } catch (error) {
+    if (currentAttempt >= maxAttempts) {
+      throw error
+    }
+
+    const delayMs = baseDelayMs * 2 ** currentAttempt
+
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+
+    currentAttempt++
+    return retryHubCallWithExponentialBackoff(
+      fn,
+      currentAttempt,
+      maxAttempts,
+      delayMs
+    )
+  }
 }

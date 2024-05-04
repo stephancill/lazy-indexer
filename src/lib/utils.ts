@@ -3,11 +3,14 @@ import {
   HubResult,
   Message,
   MessagesResponse,
-  OnChainEvent,
+  OnChainEventResponse,
   fromFarcasterTime,
 } from '@farcaster/hub-nodejs'
 import { Insertable } from 'kysely'
 
+import { getAllRegistrationsByFid } from '../api/fid.js'
+import { getAllSignersByFid } from '../api/signer.js'
+import { getAllStorageByFid } from '../api/storage.js'
 import { Tables } from '../db/db.types.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
@@ -16,6 +19,18 @@ import {
   getAllLinksByFid,
   getAllReactionsByFid,
 } from './paginate.js'
+
+export const MAX_PAGE_SIZE = 10_000
+
+export const NULL_ETH_ADDRESS = Uint8Array.from(
+  Buffer.from('0000000000000000000000000000000000000000', 'hex')
+)
+
+export function farcasterTimeToDate(time: number): Date {
+  const result = fromFarcasterTime(time)
+  if (result.isErr()) throw result.error
+  return new Date(result.value)
+}
 
 export function formatCasts(msgs: Message[]) {
   return msgs.map((msg) => {
@@ -138,7 +153,10 @@ export function checkMessages(
   return messages.isOk() ? messages.value.messages : []
 }
 
-export function checkOnchainEvent(event: HubResult<OnChainEvent>, fid: number) {
+export function checkOnchainEvent(
+  event: HubResult<OnChainEventResponse>,
+  fid: number
+) {
   if (event.isErr()) {
     log.warn(event.error, `Error fetching onchain event for FID ${fid}`)
   }
@@ -162,5 +180,10 @@ export async function getFullProfileFromHub(_fid: number) {
     links: await getAllLinksByFid(fid),
     userData: checkMessages(userData, _fid),
     verifications: checkMessages(verifications, _fid),
+
+    // Onchain events
+    registrations: getAllRegistrationsByFid(_fid),
+    signers: getAllSignersByFid(_fid),
+    storage: getAllStorageByFid(_fid),
   }
 }

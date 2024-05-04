@@ -245,6 +245,79 @@ export const up = async (db: Kysely<any>) => {
     .addUniqueConstraint('user_data_fid_type_unique', ['fid', 'type'])
     .execute()
 
+  // FIDS -----------------------------------------------------------------------------------------
+  await db.schema
+    .createTable('fids')
+    .addColumn('fid', 'bigint', (col) => col.notNull())
+    .addPrimaryKeyConstraint('fids_pkey', ['fid'])
+    .addColumn('createdAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('updatedAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('registeredAt', 'timestamptz', (col) => col.notNull())
+    .addColumn('custodyAddress', 'bytea', (col) => col.notNull())
+    .addColumn('recoveryAddress', 'bytea', (col) => col.notNull())
+    .execute()
+
+  // SIGNERS --------------------------------------------------------------------------------------
+  await db.schema
+    .createTable('signers')
+    .addColumn('id', 'uuid', (col) => col.defaultTo(sql`generate_ulid()`))
+    .addColumn('createdAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('updatedAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('addedAt', 'timestamptz', (col) => col.notNull())
+    .addColumn('removedAt', 'timestamptz')
+    .addColumn('fid', 'bigint', (col) => col.notNull())
+    .addColumn('requesterFid', 'bigint', (col) => col.notNull())
+    .addColumn('keyType', sql`smallint`, (col) => col.notNull())
+    .addColumn('metadataType', sql`smallint`, (col) => col.notNull())
+    .addColumn('key', 'bytea', (col) => col.notNull())
+    .addColumn('metadata', 'json', (col) => col.notNull())
+    .addUniqueConstraint('signers_fid_key_unique', ['fid', 'key'])
+    .execute()
+
+  await db.schema
+    .createIndex('signers_fid_index')
+    .on('signers')
+    .column('fid')
+    .execute()
+
+  await db.schema
+    .createIndex('signers_requester_fid_index')
+    .on('signers')
+    .column('requesterFid')
+    .execute()
+
+  // STORAGE ALLOCATIONS ---------------------------------------------------------------------------
+  await db.schema
+    .createTable('storage')
+    .addColumn('id', 'uuid', (col) => col.defaultTo(sql`generate_ulid()`))
+    .addColumn('createdAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('updatedAt', 'timestamptz', (col) =>
+      col.notNull().defaultTo(sql`current_timestamp`)
+    )
+    .addColumn('rentedAt', 'timestamptz', (col) => col.notNull())
+    .addColumn('expiresAt', 'timestamptz', (col) => col.notNull())
+    .addColumn('fid', 'bigint', (col) => col.notNull())
+    .addColumn('units', sql`smallint`, (col) => col.notNull())
+    .addColumn('payer', 'bytea', (col) => col.notNull())
+    .addUniqueConstraint('storage_fid_expires_at_unique', ['fid', 'expiresAt'])
+    .execute()
+
+  await db.schema
+    .createIndex('storage_fid_expires_at_index')
+    .on('storage')
+    .columns(['fid', 'expiresAt'])
+    .execute()
+
   // HUBS
   await db.schema
     .createTable('hubs')

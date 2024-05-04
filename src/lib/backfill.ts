@@ -1,17 +1,18 @@
 import { Job } from 'bullmq'
 
 import { insertCasts } from '../api/cast.js'
-import { saveLatestEventId } from '../api/event.js'
+import { insertRegistrations } from '../api/fid.js'
 import { insertHubs } from '../api/hub.js'
 import { insertLinks } from '../api/link.js'
 import { insertReactions } from '../api/reaction.js'
+import { insertSigners } from '../api/signer.js'
+import { insertStorage } from '../api/storage.js'
 import { insertUserDatas } from '../api/user-data.js'
 import { insertVerifications } from '../api/verification.js'
 import { createQueue, createWorker } from '../lib/bullmq.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { getFullProfileFromHub } from '../lib/utils.js'
-import { makeLatestEventId } from './event.js'
 
 type BackfillJob = {
   fids: number[]
@@ -33,17 +34,14 @@ async function addFidsToBackfillQueue(maxFid?: number) {
 }
 
 /**
- * Backfill the database with data from a hub.
+ * Backfill the database with data from a hub. This may take a while.
  */
 export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   log.info('Starting backfill')
-
-  // Save the latest event ID so we can subscribe from there after backfill completes
-  const latestEventId = makeLatestEventId()
-  await saveLatestEventId(latestEventId)
-
   await addFidsToBackfillQueue(maxFid)
+
   await getHubs()
+  await getDbInfo()
 }
 
 /**
@@ -68,13 +66,25 @@ async function getAllFids() {
  * Get all hubs
  */
 async function getHubs() {
-  const hubs = await hubClient.getCurrentPeers({})
+  const peers = await hubClient.getCurrentPeers({})
 
-  if (hubs.isErr()) {
-    throw new Error('Unable to backfill Hubs', { cause: hubs.error })
+  if (peers.isErr()) {
+    throw new Error('Unable to backfill Hubs', { cause: peers.error })
   }
 
-  insertHubs(hubs.value.contacts)
+  insertHubs(peers.value.contacts)
+}
+
+async function getDbInfo() {
+  const dbInfo = await hubClient.getInfo({
+    dbStats: true,
+  })
+
+  if (dbInfo.isErr()) {
+    throw new Error('Unable to get DB info', { cause: dbInfo.error })
+  }
+
+  // log.info(dbInfo.value)
 }
 
 async function handleJob(job: Job) {
@@ -95,6 +105,10 @@ async function handleJob(job: Job) {
     await insertReactions(p.reactions)
     await insertUserDatas(p.userData)
     await insertVerifications(p.verifications)
+
+    await insertRegistrations(await p.registrations)
+    await insertSigners(await p.signers)
+    await insertStorage(await p.storage)
   }
 
   await job.updateProgress(100)

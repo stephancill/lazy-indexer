@@ -102,6 +102,56 @@ type UserDataRow = {
   value: string
 }
 
+// FIDS -------------------------------------------------------------------------------------------
+export type FidRow = {
+  fid: Fid
+  createdAt: Generated<Date>
+  updatedAt: Generated<Date>
+  registeredAt: Date
+  custodyAddress: Uint8Array
+  recoveryAddress: Uint8Array
+}
+
+// SIGNERS -----------------------------------------------------------------------------------------
+declare const $signerDbId: unique symbol
+type SignerDbId = string & { [$signerDbId]: true }
+
+export type SignerAddMetadataJson = {
+  requestFid: number
+  requestSigner: Hex
+  signature: Hex
+  deadline: number
+}
+
+export type SignerRow = {
+  id: GeneratedAlways<SignerDbId>
+  createdAt: Generated<Date>
+  updatedAt: Generated<Date>
+  addedAt: Date
+  removedAt: Date | null
+  fid: Fid
+  requesterFid: Fid
+  key: Uint8Array
+  keyType: number
+  metadata: ColumnType<SignerAddMetadataJson, string, string>
+  metadataType: number
+}
+
+// STORAGE ALLOCATIONS -----------------------------------------------------------------------------
+declare const $storageDbId: unique symbol
+type StorageDbId = string & { [$storageDbId]: true }
+
+export type StorageRow = {
+  id: GeneratedAlways<StorageDbId>
+  createdAt: Generated<Date>
+  updatedAt: Generated<Date>
+  rentedAt: Date
+  expiresAt: Date
+  fid: Fid
+  units: number
+  payer: Uint8Array
+}
+
 // Hubs ------------------------------------------------------------------------------------------
 type HubRow = {
   id: number
@@ -122,5 +172,8 @@ export interface Tables {
   links: LinkRow
   verifications: VerificationRow
   userData: UserDataRow
+  fids: FidRow
+  signers: SignerRow
+  storage: StorageRow
   hubs: HubRow
 }
