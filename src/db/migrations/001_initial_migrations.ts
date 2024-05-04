@@ -245,14 +245,7 @@ export const up = async (db: Kysely<any>) => {
     .addUniqueConstraint('user_data_fid_type_unique', ['fid', 'type'])
     .execute()
 
-  // Events
-  await db.schema
-    .createTable('events')
-    .ifNotExists()
-    .addColumn('id', 'int8', (col) => col.primaryKey())
-    .execute()
-
-  // Hubs
+  // HUBS
   await db.schema
     .createTable('hubs')
     .ifNotExists()
