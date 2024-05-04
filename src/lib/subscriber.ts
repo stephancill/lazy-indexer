@@ -36,6 +36,8 @@ export async function subscribe(fromEventId: number | undefined) {
       stream.on('data', async (e: HubEvent) => {
         // TODO: figure out if we can avoid `saveLatestEventId()` on each event
         // and instead get the latest event it from the latest job in the queue
+
+        // TODO: save a batch of events rather than one by one
         await saveLatestEventId(e.id)
         await streamQueue.add('stream', e)
       })

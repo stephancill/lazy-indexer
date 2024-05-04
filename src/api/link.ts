@@ -18,6 +18,7 @@ export async function insertLinks(msgs: Message[]) {
     log.debug(`LINKS INSERTED`)
   } catch (error) {
     log.error(error, 'ERROR INSERTING LINKS')
+    throw error
   }
 }
 
@@ -42,6 +43,7 @@ export async function deleteLinks(msgs: Message[]) {
 
     log.debug(`LINKS DELETED`)
   } catch (error) {
-    log.error(error, 'ERROR DELETING LINK')
+    log.error(error, 'ERROR DELETING LINKS')
+    throw error
   }
 }

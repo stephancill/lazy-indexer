@@ -24,6 +24,7 @@ export async function insertReactions(msgs: Message[]) {
       log.debug(`REACTIONS INSERTED`)
     } catch (error) {
       log.error(error, 'ERROR INSERTING REACTIONS')
+      throw error
     }
   }
 }
@@ -65,6 +66,7 @@ export async function deleteReactions(msgs: Message[]) {
 
     log.debug(`REACTIONS DELETED`)
   } catch (error) {
-    log.error(error, 'ERROR DELETING REACTION')
+    log.error(error, 'ERROR DELETING REACTIONS')
+    throw error
   }
 }

@@ -24,6 +24,7 @@ export async function insertCasts(msgs: Message[]) {
       log.debug(`CASTS INSERTED`)
     } catch (error) {
       log.error(error, 'ERROR INSERTING CAST')
+      throw error
     }
   }
 }
@@ -54,5 +55,6 @@ export async function deleteCasts(msgs: Message[]) {
     log.debug(`CASTS DELETED`)
   } catch (error) {
     log.error(error, 'ERROR DELETING CAST')
+    throw error
   }
 }

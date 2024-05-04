@@ -22,5 +22,6 @@ export async function insertUserDatas(msgs: Message[]) {
     log.debug(`USER DATA INSERTED`)
   } catch (error) {
     log.error(error, 'ERROR INSERTING USER DATA')
+    throw error
   }
 }

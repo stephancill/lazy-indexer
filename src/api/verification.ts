@@ -22,6 +22,7 @@ export async function insertVerifications(msgs: Message[]) {
     log.debug(`VERIFICATIONS INSERTED`)
   } catch (error) {
     log.error(error, 'ERROR INSERTING VERIFICATIONS')
+    throw error
   }
 }
 
@@ -51,6 +52,7 @@ export async function deleteVerifications(msgs: Message[]) {
 
     log.debug('VERIFICATIONS DELETED')
   } catch (error) {
-    log.error(error, 'ERROR DELETING VERIFICATION')
+    log.error(error, 'ERROR DELETING VERIFICATIONS')
+    throw error
   }
 }
