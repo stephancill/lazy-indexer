@@ -13,18 +13,15 @@ export function createQueue<T>(name: string) {
 
 export function createWorker<T>(
   name: string,
-  jobHandler: (job: Job) => Promise<void>,
-  opts?: {
-    concurrency?: number
-  }
+  jobHandler: (job: Job) => Promise<void>
 ) {
-  const _concurrency = opts?.concurrency || 1
+  const concurrency = Number(process.env.WORKER_CONCURRENCY || 5)
 
   return new Worker<T>(name, jobHandler, {
     ...bullMqOptions,
-    useWorkerThreads: _concurrency > 1,
+    useWorkerThreads: concurrency > 1,
     removeOnComplete: { count: 100 },
     removeOnFail: { count: 100 },
-    concurrency: _concurrency,
+    concurrency,
   })
 }

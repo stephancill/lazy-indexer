@@ -17,9 +17,7 @@ type BackfillJob = {
 }
 
 export const backfillQueue = createQueue<BackfillJob>('backfill')
-export const backfillWorker = createWorker<BackfillJob>('backfill', handleJob, {
-  concurrency: Number(process.env.BACKFILL_CONCURRENCY || 5),
-})
+export const backfillWorker = createWorker<BackfillJob>('backfill', handleJob)
 
 async function addFidsToBackfillQueue(maxFid?: number) {
   const fids = (await getAllFids()).slice(0, maxFid)
