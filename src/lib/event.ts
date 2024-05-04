@@ -1,8 +1,12 @@
-import { HubEvent, HubEventType, MessageType } from '@farcaster/hub-nodejs'
+import {
+  FARCASTER_EPOCH,
+  HubEvent,
+  HubEventType,
+  MessageType,
+} from '@farcaster/hub-nodejs'
 import { Job } from 'bullmq'
 
 import { deleteCasts, insertCasts } from '../api/cast.js'
-import { saveLatestEventId } from '../api/event.js'
 import { deleteLinks, insertLinks } from '../api/link.js'
 import { deleteReactions, insertReactions } from '../api/reaction.js'
 import { insertUserDatas } from '../api/user-data.js'
@@ -10,7 +14,6 @@ import {
   deleteVerifications,
   insertVerifications,
 } from '../api/verification.js'
-import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
 /**
@@ -84,39 +87,19 @@ export async function handleEvent(job: Job<HubEvent>) {
   }
 }
 
-// TODO: find a better way to do this (reference shuttle implementation)
-export async function saveCurrentEventId() {
-  let triggered = false
+export function makeLatestEventId() {
+  const seq = 0
+  const now = Date.now()
+  const timestamp = now - FARCASTER_EPOCH
+  const SEQUENCE_BITS = 12
 
-  const result = await hubClient.subscribe({
-    eventTypes: [
-      HubEventType.NONE,
-      HubEventType.MERGE_MESSAGE,
-      HubEventType.PRUNE_MESSAGE,
-      HubEventType.REVOKE_MESSAGE,
-      HubEventType.MERGE_USERNAME_PROOF,
-      HubEventType.MERGE_ON_CHAIN_EVENT,
-    ],
-  })
-
-  if (result.isErr()) {
-    log.error(result.error, 'Error starting stream')
-    return
+  const binaryTimestamp = timestamp.toString(2)
+  let binarySeq = seq.toString(2)
+  if (binarySeq.length) {
+    while (binarySeq.length < SEQUENCE_BITS) {
+      binarySeq = `0${binarySeq}`
+    }
   }
 
-  result.match(
-    (stream) => {
-      stream.on('data', async (e: HubEvent) => {
-        if (triggered) return
-
-        triggered = true
-
-        await saveLatestEventId(e.id)
-        stream.cancel()
-      })
-    },
-    (e) => {
-      log.error(e, 'Error streaming data.')
-    }
-  )
+  return parseInt(binaryTimestamp + binarySeq, 2)
 }

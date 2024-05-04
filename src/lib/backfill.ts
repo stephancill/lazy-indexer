@@ -1,6 +1,7 @@
 import { Job } from 'bullmq'
 
 import { insertCasts } from '../api/cast.js'
+import { saveLatestEventId } from '../api/event.js'
 import { insertHubs } from '../api/hub.js'
 import { insertLinks } from '../api/link.js'
 import { insertReactions } from '../api/reaction.js'
@@ -10,7 +11,7 @@ import { createQueue, createWorker } from '../lib/bullmq.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { getFullProfileFromHub } from '../lib/utils.js'
-import { saveCurrentEventId } from './event.js'
+import { makeLatestEventId, saveCurrentEventId } from './event.js'
 
 type BackfillJob = {
   fids: number[]
@@ -32,11 +33,15 @@ async function addFidsToBackfillQueue(maxFid?: number) {
 }
 
 /**
- * Backfill the database with data from a hub. This may take a while.
+ * Backfill the database with data from a hub.
  */
 export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   log.info('Starting backfill')
-  await saveCurrentEventId()
+
+  // Save the latest event ID so we can subscribe from there after backfill completes
+  const latestEventId = makeLatestEventId()
+  await saveLatestEventId(latestEventId)
+
   await addFidsToBackfillQueue(maxFid)
   await getHubs()
 }
