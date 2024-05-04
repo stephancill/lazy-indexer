@@ -11,7 +11,7 @@ import { createQueue, createWorker } from '../lib/bullmq.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { getFullProfileFromHub } from '../lib/utils.js'
-import { makeLatestEventId, saveCurrentEventId } from './event.js'
+import { makeLatestEventId } from './event.js'
 
 type BackfillJob = {
   fids: number[]
