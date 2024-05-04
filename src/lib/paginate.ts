@@ -4,8 +4,9 @@ import { FidRequest, Message } from '@farcaster/hub-nodejs'
 import { hubClient } from './hub-client.js'
 import { checkMessages } from './utils.js'
 
+const pageSize = 10_000
+
 export async function getAllCastsByFid(fid: FidRequest) {
-  const pageSize = 10_000
   const casts: Message[] = new Array()
   let nextPageToken: Uint8Array | undefined
 
@@ -30,7 +31,6 @@ export async function getAllCastsByFid(fid: FidRequest) {
 }
 
 export async function getAllReactionsByFid(fid: FidRequest) {
-  const pageSize = 10_000
   const reactions: Message[] = new Array()
   let nextPageToken: Uint8Array | undefined
 
@@ -52,4 +52,28 @@ export async function getAllReactionsByFid(fid: FidRequest) {
   }
 
   return reactions
+}
+
+export async function getAllLinksByFid(fid: FidRequest) {
+  const links: Message[] = new Array()
+  let nextPageToken: Uint8Array | undefined
+
+  while (true) {
+    const res = await hubClient.getLinksByFid({
+      ...fid,
+      pageSize,
+      pageToken: nextPageToken,
+    })
+
+    const messages = checkMessages(res, fid.fid)
+    links.push(...messages)
+
+    if (messages.length < pageSize) {
+      break
+    }
+
+    nextPageToken = res._unsafeUnwrap().nextPageToken
+  }
+
+  return links
 }
