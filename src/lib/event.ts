@@ -21,8 +21,9 @@ import { log } from './logger.js'
  * Update the database based on the event type
  * @param job Job to add to the `stream` queue
  */
-export async function handleEvents(job: Job<HubEvent[]>) {
-  const events = job.data
+export async function handleEvents(job: Job<Buffer[]>) {
+  const encodedEvents = job.data
+  const events = encodedEvents.map((e) => HubEvent.decode(Buffer.from(e)))
 
   const castAdds: Message[] = new Array()
   const castRemoves: Message[] = new Array()
