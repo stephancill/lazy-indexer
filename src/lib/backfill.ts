@@ -114,6 +114,8 @@ async function handleJob(job: Job) {
     await insertRegistrations(await p.registrations)
     await insertSigners(await p.signers)
     await insertStorage(await p.storage)
+
+    await job.updateProgress(((i + 1) / fids.length) * 100)
   }
 
   await job.updateProgress(100)
