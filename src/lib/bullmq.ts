@@ -13,9 +13,13 @@ export function createQueue<T>(name: string) {
 
 export function createWorker<T>(
   name: string,
-  jobHandler: (job: Job) => Promise<void>
+  jobHandler: (job: Job) => Promise<void>,
+  opts?: {
+    concurrency?: number
+  }
 ) {
-  const concurrency = Number(process.env.WORKER_CONCURRENCY || 5)
+  const concurrency =
+    opts?.concurrency || Number(process.env.WORKER_CONCURRENCY || 5)
 
   return new Worker<T>(name, jobHandler, {
     ...bullMqOptions,
