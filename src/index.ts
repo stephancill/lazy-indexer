@@ -8,9 +8,6 @@ import { subscribe } from './lib/subscriber.js'
 
 initExpressApp()
 
-// Check the latest hub event we processed, if any
-const latestEventId = await getLatestEvent()
-
 if (process.argv[2] === '--backfill') {
   // TODO: add better logic for determining if a backfill should run
   await backfill({ maxFid: 100 })
@@ -24,9 +21,9 @@ if (process.argv[2] === '--backfill') {
     if (queueSize === 0) {
       subscriberStarted = true
       log.info('Finished backfill')
-      subscribe(latestEventId)
+      subscribe(await getLatestEvent())
     }
   })
 } else {
-  subscribe(latestEventId)
+  subscribe(await getLatestEvent())
 }

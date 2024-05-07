@@ -1,4 +1,5 @@
 import {
+  ContactInfoContentBody,
   FidRequest,
   HubResult,
   Message,
@@ -133,7 +134,23 @@ export function formatLinks(msgs: Message[]) {
   })
 }
 
-export function breakIntoChunks(array: any[], size: number) {
+export function formatHubs(contacts: ContactInfoContentBody[]) {
+  return contacts.map(
+    (c) =>
+      ({
+        gossipAddress: JSON.stringify(c.gossipAddress),
+        rpcAddress: JSON.stringify(c.rpcAddress),
+        excludedHashes: c.excludedHashes,
+        count: c.count,
+        hubVersion: c.hubVersion,
+        network: c.network.toString(),
+        appVersion: c.appVersion,
+        timestamp: c.timestamp,
+      }) satisfies Insertable<Tables['hubs']>
+  )
+}
+
+export function breakIntoChunks<T>(array: T[], size: number) {
   const chunks = []
   for (let i = 0; i < array.length; i += size) {
     chunks.push(array.slice(i, i + size))

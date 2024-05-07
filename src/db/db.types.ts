@@ -103,7 +103,7 @@ type UserDataRow = {
 }
 
 // FIDS -------------------------------------------------------------------------------------------
-export type FidRow = {
+type FidRow = {
   fid: Fid
   createdAt: Generated<Date>
   updatedAt: Generated<Date>
@@ -116,14 +116,14 @@ export type FidRow = {
 declare const $signerDbId: unique symbol
 type SignerDbId = string & { [$signerDbId]: true }
 
-export type SignerAddMetadataJson = {
+type SignerAddMetadataJson = {
   requestFid: number
   requestSigner: Hex
   signature: Hex
   deadline: number
 }
 
-export type SignerRow = {
+type SignerRow = {
   id: GeneratedAlways<SignerDbId>
   createdAt: Generated<Date>
   updatedAt: Generated<Date>
@@ -141,7 +141,7 @@ export type SignerRow = {
 declare const $storageDbId: unique symbol
 type StorageDbId = string & { [$storageDbId]: true }
 
-export type StorageRow = {
+type StorageRow = {
   id: GeneratedAlways<StorageDbId>
   createdAt: Generated<Date>
   updatedAt: Generated<Date>
@@ -153,8 +153,14 @@ export type StorageRow = {
 }
 
 // Hubs ------------------------------------------------------------------------------------------
+declare const $hubsDbId: unique symbol
+type HubsDbId = string & { [$hubsDbId]: true }
+
+// TODO: store `gossipAddress` and `rpcAddress` as jsonb
 type HubRow = {
-  id: number
+  id: GeneratedAlways<HubsDbId>
+  createdAt: Generated<Date>
+  updatedAt: Generated<Date>
   gossipAddress: string
   rpcAddress: string
   excludedHashes: string[]
