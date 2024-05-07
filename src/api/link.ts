@@ -1,8 +1,12 @@
-import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
+import { Message } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { breakIntoChunks, formatLinks } from '../lib/utils.js'
+import {
+  breakIntoChunks,
+  farcasterTimeToDate,
+  formatLinks,
+} from '../lib/utils.js'
 
 export async function insertLinks(msgs: Message[]) {
   const links = formatLinks(msgs)
@@ -34,9 +38,7 @@ export async function deleteLinks(msgs: Message[]) {
         await trx
           .updateTable('links')
           .set({
-            deletedAt: new Date(
-              fromFarcasterTime(data.timestamp)._unsafeUnwrap()
-            ),
+            deletedAt: farcasterTimeToDate(data.timestamp),
           })
           .where('fid', '=', data.fid)
           .where('targetFid', '=', data.linkBody!.targetFid!)

@@ -1,8 +1,8 @@
-import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
+import { Message } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { formatVerifications } from '../lib/utils.js'
+import { farcasterTimeToDate, formatVerifications } from '../lib/utils.js'
 
 /**
  * Insert a new verification in the database
@@ -39,11 +39,7 @@ export async function deleteVerifications(msgs: Message[]) {
 
         await trx
           .updateTable('verifications')
-          .set({
-            deletedAt: new Date(
-              fromFarcasterTime(data.timestamp)._unsafeUnwrap()
-            ),
-          })
+          .set({ deletedAt: farcasterTimeToDate(data.timestamp) })
           .where('signerAddress', '=', address)
           .where('fid', '=', data.fid)
           .execute()

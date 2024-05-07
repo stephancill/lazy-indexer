@@ -1,8 +1,12 @@
-import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
+import { Message } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { breakIntoChunks, formatReactions } from '../lib/utils.js'
+import {
+  breakIntoChunks,
+  farcasterTimeToDate,
+  formatReactions,
+} from '../lib/utils.js'
 
 /**
  * Insert a reaction in the database
@@ -39,11 +43,7 @@ export async function deleteReactions(msgs: Message[]) {
         if (reaction.targetCastId) {
           await trx
             .updateTable('reactions')
-            .set({
-              deletedAt: new Date(
-                fromFarcasterTime(data.timestamp)._unsafeUnwrap()
-              ),
-            })
+            .set({ deletedAt: farcasterTimeToDate(data.timestamp) })
             .where('fid', '=', data.fid)
             .where('type', '=', reaction.type)
             .where('targetCastHash', '=', reaction.targetCastId.hash)
@@ -51,11 +51,7 @@ export async function deleteReactions(msgs: Message[]) {
         } else if (reaction.targetUrl) {
           await trx
             .updateTable('reactions')
-            .set({
-              deletedAt: new Date(
-                fromFarcasterTime(data.timestamp)._unsafeUnwrap()
-              ),
-            })
+            .set({ deletedAt: farcasterTimeToDate(data.timestamp) })
             .where('fid', '=', data.fid)
             .where('type', '=', reaction.type)
             .where('targetUrl', '=', reaction.targetUrl)
