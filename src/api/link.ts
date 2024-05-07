@@ -2,23 +2,26 @@ import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { formatLinks } from '../lib/utils.js'
+import { breakIntoChunks, formatLinks } from '../lib/utils.js'
 
 export async function insertLinks(msgs: Message[]) {
   const links = formatLinks(msgs)
   if (links.length === 0) return
+  const chunks = breakIntoChunks(links, 1000)
 
-  try {
-    await db
-      .insertInto('links')
-      .values(links)
-      .onConflict((oc) => oc.column('hash').doNothing())
-      .execute()
+  for (const chunk of chunks) {
+    try {
+      await db
+        .insertInto('links')
+        .values(chunk)
+        .onConflict((oc) => oc.column('hash').doNothing())
+        .execute()
 
-    log.debug(`LINKS INSERTED`)
-  } catch (error) {
-    log.error(error, 'ERROR INSERTING LINKS')
-    throw error
+      log.debug(`LINKS INSERTED`)
+    } catch (error) {
+      log.error(error, 'ERROR INSERTING LINKS')
+      throw error
+    }
   }
 }
 
