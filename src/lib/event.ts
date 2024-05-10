@@ -1,5 +1,6 @@
 import {
   FARCASTER_EPOCH,
+  HubEvent,
   HubEventType,
   Message,
   MessageType,
@@ -25,12 +26,9 @@ import { log } from './logger.js'
  * Update the database based on the event type
  * @param job Job to add to the `stream` queue
  */
-export async function handleEvents(job: Job<number[]>) {
-  const events = await Promise.all(
-    job.data.map(async (id) =>
-      (await hubClient.getEvent({ id }))._unsafeUnwrap()
-    )
-  )
+export async function handleEvents(job: Job<Buffer[]>) {
+  const encodedEvents = job.data
+  const events = encodedEvents.map((e) => HubEvent.decode(Buffer.from(e)))
 
   const castAdds = new Array<Message>()
   const castRemoves = new Array<Message>()

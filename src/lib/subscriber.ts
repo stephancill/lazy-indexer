@@ -6,8 +6,8 @@ import { handleEvents } from './event.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
-export const streamQueue = createQueue<number[]>('stream')
-createWorker<number[]>('stream', handleEvents)
+export const streamQueue = createQueue<Buffer[]>('stream')
+createWorker<Buffer[]>('stream', handleEvents)
 
 /**
  * Listen for new events from a Hub
@@ -34,10 +34,11 @@ export async function subscribe(fromEventId: number | undefined) {
       )
 
       // Batch events in the queue
-      const eventsToQueue = new Array<number>()
+      const eventsToQueue = new Array<Buffer>()
 
       stream.on('data', async (e: HubEvent) => {
-        eventsToQueue.push(e.id)
+        const encodedEvent = Buffer.from(HubEvent.encode(e).finish())
+        eventsToQueue.push(encodedEvent)
 
         // Note: batches could get to be larger than 50 due to how hub events work
         if (eventsToQueue.length >= 50) {
