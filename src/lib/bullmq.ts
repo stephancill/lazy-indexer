@@ -25,7 +25,6 @@ export function createWorker<T>(
     ...bullMqOptions,
     useWorkerThreads: concurrency > 1,
     removeOnComplete: { count: 100 },
-    removeOnFail: { count: 100 },
     concurrency,
   })
 }

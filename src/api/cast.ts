@@ -1,12 +1,16 @@
-import { Message, fromFarcasterTime } from '@farcaster/hub-nodejs'
+import { Message } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
-import { breakIntoChunks, formatCasts } from '../lib/utils.js'
+import {
+  breakIntoChunks,
+  farcasterTimeToDate,
+  formatCasts,
+} from '../lib/utils.js'
 
 /**
  * Insert casts in the database
- * @param msg Hub event in JSON format
+ * @param msgs Raw hub messages
  */
 export async function insertCasts(msgs: Message[]) {
   const casts = formatCasts(msgs)
@@ -28,11 +32,9 @@ export async function insertCasts(msgs: Message[]) {
     }
   }
 }
-
 /**
- * Update a cast in the database
- * @param hash Hash of the cast
- * @param change Object with the fields to update
+ * Soft delete casts in the database
+ * @param msgs Raw hub messages
  */
 export async function deleteCasts(msgs: Message[]) {
   try {
@@ -43,9 +45,7 @@ export async function deleteCasts(msgs: Message[]) {
         await trx
           .updateTable('casts')
           .set({
-            deletedAt: new Date(
-              fromFarcasterTime(data.timestamp)._unsafeUnwrap()
-            ),
+            deletedAt: farcasterTimeToDate(data.timestamp),
           })
           .where('hash', '=', data.castRemoveBody?.targetHash!)
           .execute()
@@ -55,6 +55,33 @@ export async function deleteCasts(msgs: Message[]) {
     log.debug(`CASTS DELETED`)
   } catch (error) {
     log.error(error, 'ERROR DELETING CAST')
+    throw error
+  }
+}
+
+/**
+ * Soft prune casts in the database
+ * @param msgs Raw hub messages
+ */
+export async function pruneCasts(msgs: Message[]) {
+  try {
+    await db.transaction().execute(async (trx) => {
+      for (const msg of msgs) {
+        const data = msg.data!
+
+        await trx
+          .updateTable('casts')
+          .set({
+            prunedAt: farcasterTimeToDate(data.timestamp),
+          })
+          .where('hash', '=', data.castAddBody!.parentCastId!.hash)
+          .execute()
+      }
+    })
+
+    log.debug(`CASTS PRUNED`)
+  } catch (error) {
+    log.error(error, 'ERROR PRUNING CAST')
     throw error
   }
 }

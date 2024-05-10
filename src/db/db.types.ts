@@ -21,6 +21,7 @@ type CastRow = {
   updatedAt: Generated<Date>
   timestamp: Date
   deletedAt: Date | null
+  prunedAt: Date | null
   fid: Fid
   parentFid: Fid | null
   hash: Uint8Array
@@ -44,6 +45,7 @@ type ReactionRow = {
   updatedAt: Generated<Date>
   timestamp: Date
   deletedAt: Date | null
+  prunedAt: Date | null
   fid: Fid
   targetCastFid: Fid | null
   type: ReactionType
@@ -62,6 +64,7 @@ type LinkRow = {
   updatedAt: Generated<Date>
   timestamp: Date
   deletedAt: Date | null
+  prunedAt: Date | null
   fid: Fid
   targetFid: Fid | null
   displayTimestamp: Date | null

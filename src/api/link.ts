@@ -52,3 +52,27 @@ export async function deleteLinks(msgs: Message[]) {
     throw error
   }
 }
+
+export async function pruneLinks(msgs: Message[]) {
+  try {
+    await db.transaction().execute(async (trx) => {
+      for (const msg of msgs) {
+        const data = msg.data!
+
+        await trx
+          .updateTable('links')
+          .set({
+            prunedAt: farcasterTimeToDate(data.timestamp),
+          })
+          .where('fid', '=', data.fid)
+          .where('targetFid', '=', data.linkBody!.targetFid!)
+          .execute()
+      }
+    })
+
+    log.debug(`LINKS PRUNED`)
+  } catch (error) {
+    log.error(error, 'ERROR PRUNING LINKS')
+    throw error
+  }
+}

@@ -7,9 +7,13 @@ import {
 } from '@farcaster/hub-nodejs'
 import { Job } from 'bullmq'
 
-import { deleteCasts, insertCasts } from '../api/cast.js'
-import { deleteLinks, insertLinks } from '../api/link.js'
-import { deleteReactions, insertReactions } from '../api/reaction.js'
+import { deleteCasts, insertCasts, pruneCasts } from '../api/cast.js'
+import { deleteLinks, insertLinks, pruneLinks } from '../api/link.js'
+import {
+  deleteReactions,
+  insertReactions,
+  pruneReactions,
+} from '../api/reaction.js'
 import { insertUserDatas } from '../api/user-data.js'
 import {
   deleteVerifications,
@@ -25,15 +29,18 @@ export async function handleEvents(job: Job<Buffer[]>) {
   const encodedEvents = job.data
   const events = encodedEvents.map((e) => HubEvent.decode(Buffer.from(e)))
 
-  const castAdds: Message[] = new Array()
-  const castRemoves: Message[] = new Array()
-  const verificationAdds: Message[] = new Array()
-  const verificationRemoves: Message[] = new Array()
-  const userDataAdds: Message[] = new Array()
-  const reactionAdds: Message[] = new Array()
-  const reactionRemoves: Message[] = new Array()
-  const linkAdds: Message[] = new Array()
-  const linkRemoves: Message[] = new Array()
+  const castAdds = new Array<Message>()
+  const castRemoves = new Array<Message>()
+  const castPrunes = new Array<Message>()
+  const verificationAdds = new Array<Message>()
+  const verificationRemoves = new Array<Message>()
+  const userDataAdds = new Array<Message>()
+  const reactionAdds = new Array<Message>()
+  const reactionRemoves = new Array<Message>()
+  const reactionPrunes = new Array<Message>()
+  const linkAdds = new Array<Message>()
+  const linkRemoves = new Array<Message>()
+  const linkPrunes = new Array<Message>()
 
   for (const event of events) {
     switch (event.type) {
@@ -86,8 +93,27 @@ export async function handleEvents(job: Job<Buffer[]>) {
         break
       }
       case HubEventType.PRUNE_MESSAGE: {
-        // TODO: Mark the relevant row as `pruned` in the db but don't delete it
-        // Not important right now because I don't want to prune data for my applications
+        const msg = event.pruneMessageBody!.message!
+        const msgType = msg.data!.type
+
+        switch (msgType) {
+          case MessageType.CAST_ADD: {
+            castPrunes.push(msg)
+            break
+          }
+          case MessageType.REACTION_ADD: {
+            reactionPrunes.push(msg)
+            break
+          }
+          case MessageType.LINK_ADD: {
+            linkPrunes.push(msg)
+            break
+          }
+          default: {
+            log.debug(msg.data, 'UNHANDLED PRUNE_MESSAGE EVENT')
+          }
+        }
+
         break
       }
       case HubEventType.REVOKE_MESSAGE: {
@@ -96,7 +122,7 @@ export async function handleEvents(job: Job<Buffer[]>) {
         break
       }
       case HubEventType.MERGE_ON_CHAIN_EVENT: {
-        // TODO: index signers (storage and fids are less relevant for now)
+        // TODO: index signers, storage, and fids
         break
       }
       default: {
@@ -108,13 +134,16 @@ export async function handleEvents(job: Job<Buffer[]>) {
 
   await insertCasts(castAdds)
   await deleteCasts(castRemoves)
+  await pruneCasts(castPrunes)
   await insertVerifications(verificationAdds)
   await deleteVerifications(verificationRemoves)
   await insertUserDatas(userDataAdds)
   await insertReactions(reactionAdds)
   await deleteReactions(reactionRemoves)
+  await pruneReactions(reactionPrunes)
   await insertLinks(linkAdds)
   await deleteLinks(linkRemoves)
+  await pruneLinks(linkPrunes)
 }
 
 export function makeLatestEventId() {

@@ -66,3 +66,37 @@ export async function deleteReactions(msgs: Message[]) {
     throw error
   }
 }
+
+export async function pruneReactions(msgs: Message[]) {
+  try {
+    await db.transaction().execute(async (trx) => {
+      for (const msg of msgs) {
+        const data = msg.data!
+        const reaction = data.reactionBody!
+
+        if (reaction.targetCastId) {
+          await trx
+            .updateTable('reactions')
+            .set({ prunedAt: farcasterTimeToDate(data.timestamp) })
+            .where('fid', '=', data.fid)
+            .where('type', '=', reaction.type)
+            .where('targetCastHash', '=', reaction.targetCastId.hash)
+            .execute()
+        } else if (reaction.targetUrl) {
+          await trx
+            .updateTable('reactions')
+            .set({ prunedAt: farcasterTimeToDate(data.timestamp) })
+            .where('fid', '=', data.fid)
+            .where('type', '=', reaction.type)
+            .where('targetUrl', '=', reaction.targetUrl)
+            .execute()
+        }
+      }
+    })
+
+    log.debug(`REACTIONS PRUNED`)
+  } catch (error) {
+    log.error(error, 'ERROR PRUNING REACTIONS')
+    throw error
+  }
+}
