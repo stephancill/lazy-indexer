@@ -1,6 +1,5 @@
 import {
   FARCASTER_EPOCH,
-  HubEvent,
   HubEventType,
   Message,
   MessageType,
@@ -19,15 +18,19 @@ import {
   deleteVerifications,
   insertVerifications,
 } from '../api/verification.js'
+import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
 /**
  * Update the database based on the event type
  * @param job Job to add to the `stream` queue
  */
-export async function handleEvents(job: Job<Buffer[]>) {
-  const encodedEvents = job.data
-  const events = encodedEvents.map((e) => HubEvent.decode(Buffer.from(e)))
+export async function handleEvents(job: Job<number[]>) {
+  const events = await Promise.all(
+    job.data.map(async (id) =>
+      (await hubClient.getEvent({ id }))._unsafeUnwrap()
+    )
+  )
 
   const castAdds = new Array<Message>()
   const castRemoves = new Array<Message>()
@@ -144,6 +147,8 @@ export async function handleEvents(job: Job<Buffer[]>) {
   await insertLinks(linkAdds)
   await deleteLinks(linkRemoves)
   await pruneLinks(linkPrunes)
+
+  await job.updateProgress(100)
 }
 
 export function makeLatestEventId() {

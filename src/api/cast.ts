@@ -74,7 +74,8 @@ export async function pruneCasts(msgs: Message[]) {
           .set({
             prunedAt: farcasterTimeToDate(data.timestamp),
           })
-          .where('hash', '=', data.castAddBody!.parentCastId!.hash)
+          .where('fid', '=', data.fid)
+          .where('text', '=', data.castAddBody!.text)
           .execute()
       }
     })

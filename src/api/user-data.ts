@@ -14,6 +14,7 @@ export async function insertUserDatas(msgs: Message[]) {
       .values(userDatas)
       .onConflict((oc) =>
         oc.columns(['fid', 'type']).doUpdateSet((eb) => ({
+          hash: eb.ref('excluded.hash'),
           value: eb.ref('excluded.value'),
         }))
       )
