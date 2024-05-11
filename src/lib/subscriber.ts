@@ -2,12 +2,12 @@ import { HubEvent, HubEventType } from '@farcaster/hub-nodejs'
 
 import { saveLatestEventId } from '../api/event.js'
 import { createQueue, createWorker } from './bullmq.js'
-import { handleEvents } from './event.js'
+import { handleEvent } from './event.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
-export const streamQueue = createQueue<Buffer[]>('stream')
-createWorker<Buffer[]>('stream', handleEvents)
+export const streamQueue = createQueue<HubEvent>('stream')
+createWorker<HubEvent>('stream', handleEvent, { concurrency: 1 })
 
 /**
  * Listen for new events from a Hub
@@ -33,19 +33,10 @@ export async function subscribe(fromEventId: number | undefined) {
         `Subscribed to stream from ${fromEventId ? `event ${fromEventId}` : 'head'}`
       )
 
-      // Batch events in the queue
-      const eventsToQueue = new Array<Buffer>()
-
       stream.on('data', async (e: HubEvent) => {
-        const encodedEvent = Buffer.from(HubEvent.encode(e).finish())
-        eventsToQueue.push(encodedEvent)
-
-        // Note: batches could get to be larger than 50 due to how hub events work
-        if (eventsToQueue.length >= 50) {
-          await streamQueue.add('stream', eventsToQueue)
-          await saveLatestEventId(e.id)
-          eventsToQueue.length = 0
-        }
+        await streamQueue.add('stream', e)
+        // TODO: we can probably remove the `hub:latest-event-id` key and just use the last event ID in the queue
+        await saveLatestEventId(e.id)
       })
 
       stream.on('close', async () => {
