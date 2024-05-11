@@ -18,7 +18,7 @@ Install dependencies
 yarn install
 ```
 
-Create a `.env` file with hub and database connection details
+Create a `.env` file with your hub, database, and redis connection details
 
 ```bash
 cp .env.example .env
@@ -33,19 +33,22 @@ yarn kysely:migrate
 Run the indexer
 
 ```bash
+# Recommended to get the full state. You only need to run this once.
+# Streaming will start after the backfill is complete.
+yarn run backfill
+
+# Ignores backfill and start streaming from the latest recorded event.
+# You should run this after one initial backfill.
 yarn start
 ```
 
 ## How it works
 
-- If certain conditions are met, a backfill process is triggered to fetch the full Farcaster state from a hub. This uses [BullMQ](https://bullmq.io/) for job queueing and parallelization.
-- Separately, the indexer subscribes to a hub's event stream and processes messages as they arrive.
+- Backfill and streaming are separate processes.
+- Every operation is run through [BullMQ](https://bullmq.io/) for better concurrency and error handling.
+- For backfill, the indexer adds all FIDs (in batches of 100) to a queue and processes them in parallel. The `WORKER_CONCURRENCY` environment variable controls how many workers are spawned.
+- Once backfill is complete, the indexer subscribes to a hub's event stream and processes messages as they arrive. BullMQ is used as middleware to ensure that hub events are getting handled fast enough, otherwise the stream will disconnect.
 
-## Todo
+## Extras
 
-- [x] Subscribe to a hub's stream
-- [x] Backfill select data from all FIDs
-- [x] Handle messages in batches (e.g. queue up 1,000 messages of the same type and insert them on a schedule)
-- [ ] Handle REVOKE_MESSAGE messages
-- [ ] Improve handling of messages that arrive out of order (e.g. a MESSAGE_TYPE_CAST_REMOVE arriving before a MESSAGE_TYPE_CAST_ADD). Merkle's replicator enforces foreign key constraints to ensure that the data is consistent, and implements retry logic to handle out-of-order messages.
-- [ ] Improve shutdown process to ensure no messages are lost (e.g. recover messages that are currently in queue). Maybe save ids every x messages so we don't have to depend on `handleShutdownSignal()`?
+If you want to add search functionality, you can manually apply the SQL migration at [src/db/search-migrations.sql](./src/db/search-migrations.sql)
