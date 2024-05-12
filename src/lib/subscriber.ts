@@ -18,6 +18,7 @@ export async function subscribe(fromEventId: number | undefined) {
       HubEventType.MERGE_MESSAGE,
       HubEventType.PRUNE_MESSAGE,
       HubEventType.REVOKE_MESSAGE,
+      HubEventType.MERGE_ON_CHAIN_EVENT,
     ],
     fromId: fromEventId,
   })

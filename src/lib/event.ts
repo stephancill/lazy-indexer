@@ -3,16 +3,20 @@ import {
   HubEvent,
   HubEventType,
   MessageType,
+  OnChainEventType,
 } from '@farcaster/hub-nodejs'
 import { Job } from 'bullmq'
 
 import { deleteCasts, insertCasts, pruneCasts } from '../api/cast.js'
+import { insertRegistrations } from '../api/fid.js'
 import { deleteLinks, insertLinks, pruneLinks } from '../api/link.js'
 import {
   deleteReactions,
   insertReactions,
   pruneReactions,
 } from '../api/reaction.js'
+import { insertSigners } from '../api/signer.js'
+import { insertStorage } from '../api/storage.js'
 import { insertUserDatas } from '../api/user-data.js'
 import {
   deleteVerifications,
@@ -106,7 +110,23 @@ export async function handleEvent(job: Job<HubEvent>) {
       break
     }
     case HubEventType.MERGE_ON_CHAIN_EVENT: {
-      // TODO: index signers, storage, and fids
+      const onChainEvent = event.mergeOnChainEventBody!.onChainEvent!
+
+      switch (onChainEvent.type) {
+        case OnChainEventType.EVENT_TYPE_ID_REGISTER: {
+          await insertRegistrations([onChainEvent])
+          break
+        }
+        case OnChainEventType.EVENT_TYPE_SIGNER: {
+          await insertSigners([onChainEvent])
+          break
+        }
+        case OnChainEventType.EVENT_TYPE_STORAGE_RENT: {
+          await insertStorage([onChainEvent])
+          break
+        }
+      }
+
       break
     }
     default: {
