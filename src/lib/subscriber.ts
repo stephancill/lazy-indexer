@@ -6,8 +6,8 @@ import { handleEvent } from './event.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 
-export const streamQueue = createQueue<HubEvent>('stream')
-createWorker<HubEvent>('stream', handleEvent, { concurrency: 1 })
+export const streamQueue = createQueue<Buffer>('stream')
+createWorker<Buffer>('stream', handleEvent, { concurrency: 1 })
 
 /**
  * Listen for new events from a Hub
@@ -35,7 +35,8 @@ export async function subscribe(fromEventId: number | undefined) {
       )
 
       stream.on('data', async (e: HubEvent) => {
-        await streamQueue.add('stream', e)
+        const encodedEvent = Buffer.from(HubEvent.encode(e).finish())
+        await streamQueue.add('stream', encodedEvent)
         // TODO: we can probably remove the `hub:latest-event-id` key and just use the last event ID in the queue
         await saveLatestEventId(e.id)
       })

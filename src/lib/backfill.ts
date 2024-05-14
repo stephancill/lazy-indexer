@@ -25,7 +25,7 @@ export const backfillWorker = createWorker<BackfillJob>('backfill', handleJob)
 
 async function addFidsToBackfillQueue(maxFid?: number) {
   const fids = (await getAllFids()).slice(0, maxFid)
-  const batchSize = 100
+  const batchSize = 10
 
   for (let i = 0; i < fids.length; i += batchSize) {
     const batch = fids.slice(i, i + batchSize)

@@ -28,8 +28,9 @@ import { log } from './logger.js'
  * Update the database based on the event type
  * @param job Job to add to the `stream` queue
  */
-export async function handleEvent(job: Job<HubEvent>) {
-  const event = job.data
+export async function handleEvent(job: Job<Buffer>) {
+  const encodedEvent = job.data
+  const event = HubEvent.decode(Buffer.from(encodedEvent))
 
   switch (event.type) {
     case HubEventType.MERGE_MESSAGE: {
