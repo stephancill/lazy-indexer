@@ -39,6 +39,12 @@ async function addFidsToBackfillQueue(maxFid?: number) {
  * Backfill the database with data from a hub. This may take a while.
  */
 export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
+  // Only add fids to the queue if it's empty, otherwise it creates duplicate jobs
+  if ((await backfillQueue.getWaitingCount()) > 0) {
+    log.info('Backfill queue already has jobs waiting.')
+    return
+  }
+
   log.info('Starting backfill')
 
   // Save the latest event ID so we can subscribe from there after backfill completes

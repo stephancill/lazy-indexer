@@ -9,7 +9,6 @@ import { subscribe } from './lib/subscriber.js'
 initExpressApp()
 
 if (process.argv[2] === '--backfill') {
-  // TODO: add better logic for determining if a backfill should run
   await backfill({ maxFid: 100 })
 
   // Once backfill completes, start subscribing to new events
