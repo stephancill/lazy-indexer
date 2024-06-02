@@ -26,5 +26,6 @@ export function createWorker<T>(
     useWorkerThreads: concurrency > 1,
     removeOnComplete: { count: 100 },
     concurrency,
+    autorun: false,
   })
 }

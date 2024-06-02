@@ -1,56 +1,63 @@
-import { HubEvent, HubEventType } from '@farcaster/hub-nodejs'
+import { HubEventType } from '@farcaster/hub-nodejs'
+import { ok } from 'neverthrow'
 
-import { saveLatestEventId } from '../api/event.js'
 import { createQueue, createWorker } from './bullmq.js'
-import { handleEvent } from './event.js'
-import { hubClient } from './hub-client.js'
+import { handleEvent, handleEventJob } from './event.js'
+import { EventStreamConnection, HubEventStreamConsumer } from './eventStream.js'
+import { hubClientWithHost } from './hub-client.js'
+import { EventStreamHubSubscriber } from './hubSubscriber.js'
 import { log } from './logger.js'
+import { REDIS_URL, RedisClient } from './redis.js'
+
+export const totalShards = parseInt(process.env['SHARDS'] || '0')
+export const shardIndex = parseInt(process.env['SHARD_NUM'] || '0')
 
 export const streamQueue = createQueue<Buffer>('stream')
-createWorker<Buffer>('stream', handleEvent, { concurrency: 1 })
+createWorker<Buffer>('stream', handleEventJob, { concurrency: 1 })
+
+const hubId = 'indexer'
 
 /**
  * Listen for new events from a Hub
  */
 export async function subscribe(fromEventId: number | undefined) {
-  const result = await hubClient.subscribe({
-    eventTypes: [
-      HubEventType.MERGE_MESSAGE,
-      HubEventType.PRUNE_MESSAGE,
-      HubEventType.REVOKE_MESSAGE,
-      HubEventType.MERGE_ON_CHAIN_EVENT,
-    ],
-    fromId: fromEventId,
-  })
+  const eventTypes = [
+    HubEventType.MERGE_MESSAGE,
+    HubEventType.PRUNE_MESSAGE,
+    HubEventType.REVOKE_MESSAGE,
+    HubEventType.MERGE_ON_CHAIN_EVENT,
+  ]
 
-  if (result.isErr()) {
-    log.error(result.error, 'Error starting stream')
-    return
-  }
-
-  result.match(
-    (stream) => {
-      log.info(
-        `Subscribed to stream from ${fromEventId ? `event ${fromEventId}` : 'head'}`
-      )
-
-      stream.on('data', async (e: HubEvent) => {
-        const encodedEvent = Buffer.from(HubEvent.encode(e).finish())
-        await streamQueue.add('stream', encodedEvent)
-        // TODO: we can probably remove the `hub:latest-event-id` key and just use the last event ID in the queue
-        await saveLatestEventId(e.id)
-      })
-
-      stream.on('close', async () => {
-        log.warn(`Hub stream closed`)
-      })
-
-      stream.on('end', async () => {
-        log.warn(`Hub stream ended`)
-      })
-    },
-    (e) => {
-      log.error(e, 'Error streaming data.')
-    }
+  const redis = RedisClient.create(REDIS_URL)
+  const eventStreamForWrite = new EventStreamConnection(redis.client)
+  const eventStreamForRead = new EventStreamConnection(redis.client)
+  const shardKey = totalShards === 0 ? 'all' : `${shardIndex}`
+  const hubSubscriber = new EventStreamHubSubscriber(
+    hubId,
+    hubClientWithHost,
+    eventStreamForWrite,
+    redis,
+    shardKey,
+    log,
+    eventTypes,
+    totalShards,
+    shardIndex
   )
+  const streamConsumer = new HubEventStreamConsumer(
+    hubClientWithHost,
+    eventStreamForRead,
+    shardKey
+  )
+
+  await hubSubscriber.start()
+
+  // Sleep 10 seconds to give the subscriber a chance to create the stream for the first time.
+  await new Promise((resolve) => setTimeout(resolve, 10_000))
+
+  log.info('Starting stream consumer')
+  // Stream consumer reads from the redis stream and inserts them into postgres
+  await streamConsumer.start(async (event) => {
+    await handleEvent(event)
+    return ok({ skipped: false })
+  })
 }

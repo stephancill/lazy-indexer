@@ -30,6 +30,7 @@ async function addFidsToBackfillQueue(maxFid?: number) {
   for (let i = 0; i < fids.length; i += batchSize) {
     const batch = fids.slice(i, i + batchSize)
     await backfillQueue.add('backfill', { fids: batch })
+    log.info(`Added FIDs ${i + batchSize} / ${fids.length} to queue`)
   }
 
   log.info('Added fids to queue')
@@ -39,6 +40,8 @@ async function addFidsToBackfillQueue(maxFid?: number) {
  * Backfill the database with data from a hub. This may take a while.
  */
 export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
+  backfillWorker.run()
+
   // Only add fids to the queue if it's empty, otherwise it creates duplicate jobs
   if ((await backfillQueue.getWaitingCount()) > 0) {
     log.info('Backfill queue already has jobs waiting.')
@@ -101,6 +104,8 @@ async function getHubs() {
 async function handleJob(job: Job) {
   const { fids } = job.data
 
+  let startTime = Date.now()
+
   for (let i = 0; i < fids.length; i++) {
     const fid = fids[i]
 
@@ -123,6 +128,10 @@ async function handleJob(job: Job) {
 
     await job.updateProgress(((i + 1) / fids.length) * 100)
   }
+
+  log.info(
+    `Backfill complete up to FID ${fids[fids.length - 1]} in ${(Date.now() - startTime) / 1000}s`
+  )
 
   await job.updateProgress(100)
 }

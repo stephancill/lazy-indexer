@@ -199,3 +199,20 @@ export async function getFullProfileFromHub(_fid: number) {
     storage: getAllStorageByFid(_fid),
   }
 }
+
+export async function inBatchesOf<T>(
+  items: T[],
+  batchSize: number,
+  fn: (batch: T[]) => any
+) {
+  let offset = 0
+  while (offset < items.length) {
+    const batch = items.slice(offset, offset + batchSize)
+    await fn(batch)
+    offset += batchSize
+  }
+}
+
+export function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}

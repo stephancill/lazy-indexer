@@ -1,8 +1,46 @@
-import Redis from 'ioredis'
+import Redis, { RedisOptions } from 'ioredis'
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
+export const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 
 export const redis = new Redis(REDIS_URL, {
   connectTimeout: 5_000,
   maxRetriesPerRequest: null, // BullMQ wants this set
 })
+
+export const getRedisClient = (redisUrl: string, redisOpts?: RedisOptions) => {
+  const client = new Redis(redisUrl, {
+    connectTimeout: 5_000,
+    maxRetriesPerRequest: null, // BullMQ wants this set
+    ...redisOpts,
+  })
+  return client
+}
+
+export class RedisClient {
+  public client: Redis
+  constructor(client: Redis) {
+    this.client = client
+  }
+  static create(redisUrl: string, redisOpts?: RedisOptions) {
+    const client = getRedisClient(redisUrl, redisOpts)
+    return new RedisClient(client)
+  }
+
+  async setLastProcessedEvent(hubId: string, eventId: number) {
+    const key = `hub:${hubId}:last-hub-event-id`
+    if (eventId === 0) {
+      await this.client.del(key)
+    } else {
+      await this.client.set(key, eventId.toString())
+    }
+  }
+
+  async getLastProcessedEvent(hubId: string) {
+    const eventId = await this.client.get(`hub:${hubId}:last-hub-event-id`)
+    return eventId ? parseInt(eventId) : 0
+  }
+
+  async clearForTest() {
+    await this.client.flushdb()
+  }
+}
