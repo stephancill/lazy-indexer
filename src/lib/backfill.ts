@@ -1,4 +1,4 @@
-import { Job } from 'bullmq'
+import { FlowProducer, Job, Queue } from 'bullmq'
 
 import { insertCasts } from '../api/cast.js'
 import { saveLatestEventId } from '../api/event.js'
@@ -15,46 +15,64 @@ import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { getFullProfileFromHub } from '../lib/utils.js'
 import { makeLatestEventId } from './event.js'
+import { getNetworkByFid } from './links-utils.js'
+import { redis } from './redis.js'
+import { addRootTarget, addTarget, isTarget } from './targets.js'
 
 type BackfillJob = {
-  fids: number[]
+  fid: number
 }
 
-export const backfillQueue = createQueue<BackfillJob>('backfill')
-export const backfillWorker = createWorker<BackfillJob>('backfill', handleJob)
+type RootBackfillJob = {
+  fid: number
+}
 
-async function addFidsToBackfillQueue(maxFid?: number) {
-  const fids = (await getAllFids()).slice(0, maxFid)
-  const batchSize = 10
+const backfillQueueName = 'backfill'
+const backfillJobName = 'backfill'
+export const getBackfillQueue = () =>
+  createQueue<BackfillJob>(backfillQueueName)
+export const getBackfillWorker = () =>
+  createWorker<BackfillJob>(backfillQueueName, handleBackfillJob)
 
-  for (let i = 0; i < fids.length; i += batchSize) {
-    const batch = fids.slice(i, i + batchSize)
-    await backfillQueue.add('backfill', { fids: batch })
-    log.info(`Added FIDs ${i + batchSize} / ${fids.length} to queue`)
-  }
+const rootBackfillQueueName = 'rootBackfill'
+export const rootBackfillJobName = 'rootBackfill'
+export const getRootBackfillQueue = () =>
+  createQueue<RootBackfillJob>(rootBackfillQueueName, {
+    defaultJobOptions: {
+      removeOnComplete: false,
+    },
+  })
+export const getRootBackfillWorker = () =>
+  createWorker<RootBackfillJob>(rootBackfillQueueName, async (job) => {
+    log.info(`Completed root backfill job for FID ${job.data.fid}`)
+  })
 
-  log.info('Added fids to queue')
+const flowProducer = new FlowProducer({ connection: redis })
+
+function getBackfillJobId(fid: number) {
+  return `backfill:${fid}`
+}
+
+export function getRootBackfillJobId(fid: number) {
+  return `backfill:root:${fid}`
 }
 
 /**
  * Backfill the database with data from a hub. This may take a while.
  */
 export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
+  const backfillWorker = getBackfillWorker()
   backfillWorker.run()
 
-  // Only add fids to the queue if it's empty, otherwise it creates duplicate jobs
-  if ((await backfillQueue.getWaitingCount()) > 0) {
-    log.info('Backfill queue already has jobs waiting.')
-    return
-  }
+  const rootBackfillWorker = getRootBackfillWorker()
+  rootBackfillWorker.run()
 
   log.info('Starting backfill')
 
   // Save the latest event ID so we can subscribe from there after backfill completes
   const latestEventId = makeLatestEventId()
   await saveLatestEventId(latestEventId)
-  await addFidsToBackfillQueue(maxFid)
-  await getHubs()
+  // await getHubs()
   // await getDbInfo()
 }
 
@@ -101,37 +119,84 @@ async function getHubs() {
 // log.info(dbInfo.value)
 // }
 
-async function handleJob(job: Job) {
-  const { fids } = job.data
+export async function createRootBackfillJob(fid: number) {
+  const {
+    linksByDepth: { ['1']: linksSet },
+  } = await getNetworkByFid(fid, {
+    onProgress(message) {
+      log.info(message)
+    },
+  })
+
+  log.info(`Found ${linksSet.size} links for FID ${fid}`)
+
+  addRootTarget(fid)
+
+  const links = [fid, ...Array.from(linksSet)]
+
+  const flow = await flowProducer.add({
+    name: rootBackfillJobName,
+    queueName: rootBackfillQueueName,
+    data: { fid, links },
+    children: links.map((fid) => ({
+      queueName: backfillQueueName,
+      name: backfillJobName,
+      data: { fid },
+      opts: {
+        jobId: getBackfillJobId(fid),
+      },
+    })),
+    opts: {
+      jobId: getRootBackfillJobId(fid),
+    },
+  })
+
+  return flow
+}
+
+export async function queueBackfillJob(fid: number, queue: Queue<BackfillJob>) {
+  const job = await queue.add(
+    backfillJobName,
+    { fid },
+    { jobId: getBackfillJobId(fid) }
+  )
+  log.info(`Queued backfill job for FID ${fid}: ${job.id}`)
+}
+
+async function handleBackfillJob(job: Job<BackfillJob>) {
+  const { fid } = job.data
 
   let startTime = Date.now()
 
-  for (let i = 0; i < fids.length; i++) {
-    const fid = fids[i]
-
-    const p = await getFullProfileFromHub(fid).catch((err) => {
-      log.error(err, `Error getting profile for FID ${fid}`)
-      return null
-    })
-
-    if (!p) continue
-
-    await insertCasts(p.casts)
-    await insertLinks(p.links)
-    await insertReactions(p.reactions)
-    await insertUserDatas(p.userData)
-    await insertVerifications(p.verifications)
-
-    await insertRegistrations(await p.registrations)
-    await insertSigners(await p.signers)
-    await insertStorage(await p.storage)
-
-    await job.updateProgress(((i + 1) / fids.length) * 100)
+  if (await isTarget(fid)) {
+    log.info(`FID ${fid} already backfilled`)
+    return
   }
 
-  log.info(
-    `Backfill complete up to FID ${fids[fids.length - 1]} in ${(Date.now() - startTime) / 1000}s`
-  )
+  addTarget(fid)
 
-  await job.updateProgress(100)
+  await backfillFid(fid)
+
+  log.info(
+    `Backfill complete up to FID ${fid} in ${(Date.now() - startTime) / 1000}s`
+  )
+}
+
+async function backfillFid(fid: number) {
+  const p = await getFullProfileFromHub(fid).catch((err) => {
+    log.error(err, `Error getting profile for FID ${fid}`)
+    return null
+  })
+
+  if (!p) return
+
+  await insertCasts(p.casts)
+  await insertLinks(p.links)
+  await insertReactions(p.reactions)
+  await insertUserDatas(p.userData)
+  await insertVerifications(p.verifications)
+
+  await insertRegistrations(await p.registrations)
+  await insertSigners(await p.signers)
+  await insertStorage(await p.storage)
 }

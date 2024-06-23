@@ -23,6 +23,7 @@ import {
   insertVerifications,
 } from '../api/verification.js'
 import { log } from './logger.js'
+import { allTargetsKey, isTarget } from './targets.js'
 
 /**
  * Update the database based on the event type
@@ -38,6 +39,20 @@ export async function handleEventJob(job: Job<Buffer>) {
 }
 
 export async function handleEvent(event: HubEvent) {
+  const fid =
+    event.mergeMessageBody?.message?.data?.fid ||
+    event.mergeOnChainEventBody?.onChainEvent?.fid ||
+    event.mergeUsernameProofBody?.usernameProof?.fid ||
+    event.pruneMessageBody?.message?.data?.fid ||
+    event.revokeMessageBody?.message?.data?.fid
+
+  if (fid && !(await isTarget(fid, allTargetsKey))) {
+    // log.debug('Skipping event for unknown FID ' + fid)
+    return
+  }
+
+  log.debug('Processing event for known FID ' + fid)
+
   switch (event.type) {
     case HubEventType.MERGE_MESSAGE: {
       const msg = event.mergeMessageBody!.message!

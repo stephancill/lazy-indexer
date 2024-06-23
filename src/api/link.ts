@@ -1,7 +1,9 @@
 import { Message } from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
+import { getBackfillQueue, queueBackfillJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
+import { isRootTarget } from '../lib/targets.js'
 import {
   breakIntoChunks,
   farcasterTimeToDate,
@@ -25,6 +27,18 @@ export async function insertLinks(msgs: Message[]) {
     } catch (error) {
       log.error(error, 'ERROR INSERTING LINKS')
       throw error
+    }
+  }
+
+  const queue = getBackfillQueue()
+
+  // Check if message fid is a root target, if so, queue a backfill job for link target
+  for (const msg of msgs) {
+    const data = msg.data!
+    if (data.linkBody?.targetFid) {
+      if (await isRootTarget(data.fid)) {
+        queueBackfillJob(data.linkBody.targetFid, queue)
+      }
     }
   }
 }

@@ -174,6 +174,14 @@ type HubRow = {
   timestamp: number
 }
 
+// SYNC TARGETS
+export type TargetRow = {
+  id: GeneratedAlways<string>
+  createdAt: Generated<Date>
+  updatedAt: Generated<Date>
+  fid: Fid
+}
+
 // ALL TABLES --------------------------------------------------------------------------------------
 export interface Tables {
   casts: CastRow
@@ -185,4 +193,5 @@ export interface Tables {
   signers: SignerRow
   storage: StorageRow
   hubs: HubRow
+  targets: TargetRow
 }

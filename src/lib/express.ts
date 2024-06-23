@@ -5,16 +5,24 @@ import { extractEventTimestamp } from '@farcaster/hub-nodejs'
 import express from 'express'
 
 import { getLatestEvent } from '../api/event.js'
-import { backfillQueue } from './backfill.js'
+import {
+  createRootBackfillJob,
+  getBackfillQueue,
+  getRootBackfillJobId,
+  getRootBackfillQueue,
+} from './backfill.js'
 import { log } from './logger.js'
-import { streamQueue } from './subscriber.js'
 
 export function initExpressApp() {
   const app = express()
   const serverAdapter = new ExpressAdapter()
+  const backfillQueue = getBackfillQueue()
+  const rootBackfillQueue = getRootBackfillQueue()
 
-  app.listen(3001, () => {
-    log.info('Server started on http://localhost:3001')
+  const port = process.env.PORT || 3005
+
+  app.listen(port, () => {
+    log.info('Server started on http://localhost:' + port)
   })
 
   serverAdapter.setBasePath('/')
@@ -23,6 +31,7 @@ export function initExpressApp() {
   app.get('/stats', async (req, res) => {
     let latestEventTimestamp
     const latestEventId = await getLatestEvent()
+
     const isBackfillActive = (await backfillQueue.getActiveCount()) > 0
 
     if (latestEventId) {
@@ -34,8 +43,47 @@ export function initExpressApp() {
       .json({ latestEventId, latestEventTimestamp, isBackfillActive })
   })
 
+  app.post('/backfill/:fid', async (req, res) => {
+    const { fid: fidRaw } = req.params
+    const fid = parseInt(fidRaw)
+
+    const rootBackfillJobId = getRootBackfillJobId(fid)
+
+    const job = await rootBackfillQueue.getJob(rootBackfillJobId)
+
+    if (job) {
+      return res.status(409).json({ job })
+    }
+
+    const jobNode = await createRootBackfillJob(fid)
+
+    return res.status(200).json({ jobId: rootBackfillJobId, jobNode })
+  })
+
+  app.get('/backfill/:fid', async (req, res) => {
+    const { fid: fidRaw } = req.params
+    const fid = parseInt(fidRaw)
+
+    const rootBackfillJobId = getRootBackfillJobId(fid)
+    const job = await rootBackfillQueue.getJob(rootBackfillJobId)
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' })
+    }
+
+    const allWaiting = await backfillQueue.getWaiting()
+    const waitingChildren = allWaiting.filter(
+      (job) => job.parent?.id === rootBackfillJobId
+    )
+
+    return res.status(200).json({ job, childCount: waitingChildren.length })
+  })
+
   createBullBoard({
-    queues: [new BullMQAdapter(backfillQueue), new BullMQAdapter(streamQueue)],
+    queues: [
+      new BullMQAdapter(backfillQueue),
+      new BullMQAdapter(rootBackfillQueue),
+    ],
     serverAdapter,
   })
 }

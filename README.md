@@ -4,6 +4,12 @@ This is an indexer that listens for messages from a [Farcaster Hub](https://docs
 
 The most performant way to run this is to co-locate everything (hub, node app, postgres, redis) on the same machine. I recommend [Latitude](https://www.latitude.sh/r/673C7DB2) (referral code for $200 of free credits).
 
+## Lazy Features
+
+- This indexer only listens for events from the `targets:all` set in redis.
+- An FID can be added to `targets:root` by sending a `POST` request to the indexer's `/backfill/:fid` endpoint. This will trigger a backfill for the specified FID as well as all the users the FID follows.
+- When an FID in `targets:root` follows a new FID, the indexer will automatically backfill the new FID and add it to `targets:all`.
+
 ## How to run
 
 Clone this repo

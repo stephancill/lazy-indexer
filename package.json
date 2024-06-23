@@ -13,11 +13,12 @@
   },
   "dependencies": {
     "@bull-board/express": "^5.16.0",
-    "@farcaster/hub-nodejs": "^0.11.0",
+    "@farcaster/hub-nodejs": "^0.11.17",
     "bullmq": "^5.7.6",
     "cli-progress": "^3.12.0",
     "dotenv": "^16.4.4",
     "express": "^4.19.2",
+    "fastq": "^1.17.1",
     "ioredis": "^5.4.1",
     "kysely": "^0.27.2",
     "pg": "^8.11.3",
