@@ -42,15 +42,6 @@ export class EventStreamConnection {
    */
   async createGroup(key: string, consumerGroup: string) {
     try {
-      // Check if the group already exists
-      const groups = (await this.client.xinfo('GROUPS', key)) as [
-        string,
-        string,
-      ][]
-      if (groups.some(([_fieldName, groupName]) => groupName === consumerGroup))
-        return
-
-      // Otherwise create the group
       return await this.client.xgroup(
         'CREATE',
         key,
@@ -61,6 +52,7 @@ export class EventStreamConnection {
     } catch (e: unknown) {
       if (typeof e === 'object' && e !== null && e instanceof ReplyError) {
         if ('message' in e && (e.message as string).startsWith('BUSYGROUP')) {
+          log.info('Consumer group already exists')
           return // Ignore if group already exists
         }
       }
