@@ -5,10 +5,16 @@ import { redis } from './redis.js'
 
 const bullMqOptions: QueueOptions = {
   connection: redis,
+  defaultJobOptions: {
+    attempts: 3,
+  },
 }
 
 export function createQueue<T>(name: string, opts?: Partial<QueueOptions>) {
-  return new Queue<T>(name, { ...bullMqOptions, ...opts })
+  return new Queue<T>(name, {
+    ...bullMqOptions,
+    ...opts,
+  })
 }
 
 export function createWorker<T>(

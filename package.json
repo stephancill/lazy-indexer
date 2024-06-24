@@ -9,7 +9,7 @@
     "start": "tsc && node ./dist/index.js",
     "dev": "tsc && node ./dist/index.js",
     "backfill": "tsc && node ./dist/index.js --backfill",
-    "kysely:migrate": "tsc && node ./dist/db/migrator.js"
+    "migrate": "tsc && node ./dist/db/migrator.js"
   },
   "dependencies": {
     "@bull-board/express": "^5.16.0",
