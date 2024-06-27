@@ -3,7 +3,6 @@ import { FlowProducer, Job, Queue } from 'bullmq'
 import { insertCasts } from '../api/cast.js'
 import { saveLatestEventId } from '../api/event.js'
 import { insertRegistrations } from '../api/fid.js'
-import { insertHubs } from '../api/hub.js'
 import { insertLinks } from '../api/link.js'
 import { insertReactions } from '../api/reaction.js'
 import { insertSigners } from '../api/signer.js'
@@ -17,7 +16,7 @@ import { getFullProfileFromHub } from '../lib/utils.js'
 import { makeLatestEventId } from './event.js'
 import { getNetworkByFid } from './links-utils.js'
 import { redis } from './redis.js'
-import { addRootTarget, addTarget, isTarget } from './targets.js'
+import { addRootTarget, addTarget, isTarget, removeTarget } from './targets.js'
 
 type BackfillJob = {
   fid: number
@@ -94,73 +93,53 @@ async function getAllFids() {
   return Array.from({ length: Number(maxFid) }, (_, i) => i + 1)
 }
 
-/**
- * Get all hubs
- */
-async function getHubs() {
-  const peers = await hubClient.getCurrentPeers({})
-
-  if (peers.isErr()) {
-    throw new Error('Unable to backfill Hubs', { cause: peers.error })
-  }
-
-  insertHubs(peers.value.contacts)
-}
-
-// async function getDbInfo() {
-//   const dbInfo = await hubClient.getInfo({
-//     dbStats: true,
-//   })
-
-//   if (dbInfo.isErr()) {
-//     throw new Error('Unable to get DB info', { cause: dbInfo.error })
-//   }
-
-// log.info(dbInfo.value)
-// }
-
-export async function createRootBackfillJob(fid: number) {
+export async function createRootBackfillJob(rootFid: number) {
   const {
     linksByDepth: { ['1']: linksSet },
-  } = await getNetworkByFid(fid, {
+  } = await getNetworkByFid(rootFid, {
     onProgress(message) {
       log.info(message)
     },
   })
 
-  log.info(`Found ${linksSet.size} links for FID ${fid}`)
+  log.info(`Found ${linksSet.size} links for FID ${rootFid}`)
 
-  addRootTarget(fid)
+  addRootTarget(rootFid)
 
-  const links = [fid, ...Array.from(linksSet)]
+  const links = [rootFid, ...Array.from(linksSet)]
 
   const flow = await flowProducer.add({
     name: rootBackfillJobName,
     queueName: rootBackfillQueueName,
-    data: { fid, links },
+    data: { fid: rootFid, links },
     children: links.map((fid) => ({
       queueName: backfillQueueName,
       name: backfillJobName,
       data: { fid },
       opts: {
-        jobId: getBackfillJobId(fid),
+        jobId: getBackfillJobId(rootFid),
       },
     })),
     opts: {
-      jobId: getRootBackfillJobId(fid),
+      jobId: getRootBackfillJobId(rootFid),
     },
   })
 
   return flow
 }
 
-export async function queueBackfillJob(fid: number, queue: Queue<BackfillJob>) {
+export async function queueBackfillJob(
+  fid: number,
+  queue: Queue<BackfillJob>,
+  priority: number | undefined = 100
+) {
   const job = await queue.add(
     backfillJobName,
     { fid },
-    { jobId: getBackfillJobId(fid) }
+    { jobId: getBackfillJobId(fid), priority }
   )
   log.info(`Queued backfill job for FID ${fid}: ${job.id}`)
+  return job
 }
 
 async function handleBackfillJob(job: Job<BackfillJob>) {
@@ -168,14 +147,16 @@ async function handleBackfillJob(job: Job<BackfillJob>) {
 
   let startTime = Date.now()
 
-  if (await isTarget(fid)) {
-    log.info(`FID ${fid} already backfilled`)
-    return
-  }
-
+  const isAlreadyTarget = await isTarget(fid)
   addTarget(fid)
 
-  await backfillFid(fid)
+  await backfillFid(fid).catch((err) => {
+    // Undo the target if the backfill fails and it wasn't already a target
+    if (!isAlreadyTarget) removeTarget(fid)
+
+    log.error(err, `Error backfilling FID ${fid}`)
+    throw err
+  })
 
   log.info(
     `Backfill complete up to FID ${fid} in ${(Date.now() - startTime) / 1000}s`

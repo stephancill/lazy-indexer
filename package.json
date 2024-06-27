@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf ./dist",
-    "start": "tsc && node ./dist/index.js",
+    "start": "tsc && yarn migrate && node ./dist/index.js",
     "dev": "tsc && node ./dist/index.js",
     "backfill": "tsc && node ./dist/index.js --backfill",
     "migrate": "tsc && node ./dist/db/migrator.js"

@@ -10,6 +10,7 @@ import {
   getBackfillQueue,
   getRootBackfillJobId,
   getRootBackfillQueue,
+  queueBackfillJob,
 } from './backfill.js'
 import { log } from './logger.js'
 
@@ -43,7 +44,7 @@ export function initExpressApp() {
       .json({ latestEventId, latestEventTimestamp, isBackfillActive })
   })
 
-  app.post('/backfill/:fid', async (req, res) => {
+  app.post('/root-backfill/:fid', async (req, res) => {
     const { fid: fidRaw } = req.params
     const fid = parseInt(fidRaw)
 
@@ -60,7 +61,7 @@ export function initExpressApp() {
     return res.status(200).json({ jobId: rootBackfillJobId, jobNode })
   })
 
-  app.get('/backfill/:fid', async (req, res) => {
+  app.get('/root-backfill/:fid', async (req, res) => {
     const { fid: fidRaw } = req.params
     const fid = parseInt(fidRaw)
 
@@ -77,6 +78,15 @@ export function initExpressApp() {
     )
 
     return res.status(200).json({ job, childCount: waitingChildren.length })
+  })
+
+  app.post('/backfill/:fid', async (req, res) => {
+    const { fid: fidRaw } = req.params
+    const fid = parseInt(fidRaw)
+
+    const job = await queueBackfillJob(fid, backfillQueue, 1)
+
+    return res.status(200).json(job)
   })
 
   createBullBoard({

@@ -28,5 +28,13 @@ export async function addTarget(fid: number) {
   await redis.sadd(allTargetsKey, fid)
 }
 
+export async function removeRootTarget(fid: number) {
+  await redis.srem(rootTargetsKey, fid)
+}
+
+export async function removeTarget(fid: number) {
+  await redis.srem(allTargetsKey, fid)
+}
+
 export const allTargets = getTargets(allTargetsKey)
 export const rootTargets = getTargets(rootTargetsKey)

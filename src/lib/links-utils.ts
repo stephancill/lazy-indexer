@@ -194,8 +194,6 @@ export async function getNetworkByFid(
     {} as Record<number, number[]>
   )
 
-  onProgress(`Caching network for viewerFid ${fid}`)
-
   onProgress(`Done`)
 
   return { allLinks, linksByDepth, popularityByFid: occurrancesByFid }

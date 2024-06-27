@@ -7,6 +7,7 @@ const bullMqOptions: QueueOptions = {
   connection: redis,
   defaultJobOptions: {
     attempts: 3,
+    priority: 100,
   },
 }
 
