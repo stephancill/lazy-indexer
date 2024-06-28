@@ -75,6 +75,7 @@ export async function getFidCount() {
 
 export async function getNetworkByFid(
   fid: number,
+  maxDepth: number,
   {
     onProgress = () => {},
     forceRefresh,
@@ -91,9 +92,8 @@ export async function getNetworkByFid(
   const occurrancesByFid: Record<number, number> = {}
   let linksToIndex = new Set<number>([fid])
   let depth = 0
-  const MAX_DEPTH = 3
 
-  while (depth < MAX_DEPTH && linksToIndex.size > 0) {
+  while (depth < maxDepth && linksToIndex.size > 0) {
     /**
      * This loop gets links for each fid in linksToIndex, and then adds them to nextLinks
      */
@@ -124,7 +124,7 @@ export async function getNetworkByFid(
     })
 
     // If we're at the last depth, don't fetch any more links
-    if (depth === MAX_DEPTH - 1) {
+    if (depth === maxDepth - 1) {
       depth++
       break
     }

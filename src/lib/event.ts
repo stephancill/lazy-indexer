@@ -88,7 +88,7 @@ export async function handleEvent(event: HubEvent) {
           break
         }
         case MessageType.LINK_ADD: {
-          await insertLinks([msg])
+          await insertLinks([msg], 'stream')
           break
         }
         case MessageType.LINK_REMOVE: {

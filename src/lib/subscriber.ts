@@ -1,11 +1,11 @@
 import { HubEventType } from '@farcaster/hub-nodejs'
 import { ok } from 'neverthrow'
 
-import { createQueue, createWorker } from './bullmq.js'
 import { handleEvent, handleEventJob } from './event.js'
 import { EventStreamConnection, HubEventStreamConsumer } from './eventStream.js'
 import { hubClientWithHost } from './hub-client.js'
 import { EventStreamHubSubscriber } from './hubSubscriber.js'
+import { createQueue, createWorker } from './jobs.js'
 import { log } from './logger.js'
 import { REDIS_URL, RedisClient } from './redis.js'
 

@@ -10,7 +10,10 @@ import {
   formatLinks,
 } from '../lib/utils.js'
 
-export async function insertLinks(msgs: Message[]) {
+export async function insertLinks(
+  msgs: Message[],
+  source: 'stream' | 'backfill' = 'backfill'
+) {
   const links = formatLinks(msgs)
   if (links.length === 0) return
   const chunks = breakIntoChunks(links, 1000)
@@ -33,10 +36,10 @@ export async function insertLinks(msgs: Message[]) {
   const queue = getBackfillQueue()
 
   // Check if message fid is a root target, if so, queue a backfill job for link target
-  for (const msg of msgs) {
-    const data = msg.data!
-    if (data.linkBody?.targetFid) {
-      if (await isRootTarget(data.fid)) {
+  if (source === 'stream') {
+    for (const msg of msgs) {
+      const data = msg.data!
+      if (data.linkBody?.targetFid && (await isRootTarget(data.fid))) {
         queueBackfillJob(data.linkBody.targetFid, queue)
       }
     }

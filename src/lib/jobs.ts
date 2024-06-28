@@ -1,19 +1,24 @@
-import { Job, Queue, QueueOptions, Worker } from 'bullmq'
+import { Job, Queue, QueueOptions, Worker, WorkerOptions } from 'bullmq'
 
 import { log } from './logger.js'
 import { redis } from './redis.js'
 
-const bullMqOptions: QueueOptions = {
+const workerOptions: WorkerOptions = {
+  connection: redis,
+}
+
+const queueOptions: QueueOptions = {
   connection: redis,
   defaultJobOptions: {
     attempts: 3,
+    removeOnComplete: true,
     priority: 100,
   },
 }
 
 export function createQueue<T>(name: string, opts?: Partial<QueueOptions>) {
   return new Queue<T>(name, {
-    ...bullMqOptions,
+    ...queueOptions,
     ...opts,
   })
 }
@@ -21,7 +26,7 @@ export function createQueue<T>(name: string, opts?: Partial<QueueOptions>) {
 export function createWorker<T>(
   name: string,
   jobHandler: (job: Job) => Promise<void>,
-  opts?: WorkerOptions & {
+  opts?: Partial<WorkerOptions> & {
     concurrency?: number
   }
 ) {
@@ -31,8 +36,9 @@ export function createWorker<T>(
   log.info(`Creating worker ${name} with concurrency ${concurrency}`)
 
   return new Worker<T>(name, jobHandler, {
-    ...bullMqOptions,
+    ...workerOptions,
     useWorkerThreads: concurrency > 1,
+    concurrency,
     autorun: false,
     ...opts,
   })

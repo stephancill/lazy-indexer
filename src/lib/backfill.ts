@@ -9,11 +9,11 @@ import { insertSigners } from '../api/signer.js'
 import { insertStorage } from '../api/storage.js'
 import { insertUserDatas } from '../api/user-data.js'
 import { insertVerifications } from '../api/verification.js'
-import { createQueue, createWorker } from '../lib/bullmq.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { getFullProfileFromHub } from '../lib/utils.js'
 import { makeLatestEventId } from './event.js'
+import { createQueue, createWorker } from './jobs.js'
 import { getNetworkByFid } from './links-utils.js'
 import { redis } from './redis.js'
 import { addRootTarget, addTarget, isTarget, removeTarget } from './targets.js'
@@ -24,6 +24,7 @@ type BackfillJob = {
 
 type RootBackfillJob = {
   fid: number
+  backfillCount: number
 }
 
 const backfillQueueName = 'backfill'
@@ -36,11 +37,7 @@ export const getBackfillWorker = () =>
 const rootBackfillQueueName = 'rootBackfill'
 export const rootBackfillJobName = 'rootBackfill'
 export const getRootBackfillQueue = () =>
-  createQueue<RootBackfillJob>(rootBackfillQueueName, {
-    defaultJobOptions: {
-      removeOnComplete: false,
-    },
-  })
+  createQueue<RootBackfillJob>(rootBackfillQueueName)
 export const getRootBackfillWorker = () =>
   createWorker<RootBackfillJob>(rootBackfillQueueName, async (job) => {
     log.info(`Completed root backfill job for FID ${job.data.fid}`)
@@ -48,7 +45,7 @@ export const getRootBackfillWorker = () =>
 
 const flowProducer = new FlowProducer({ connection: redis })
 
-function getBackfillJobId(fid: number) {
+export function getBackfillJobId(fid: number) {
   return `backfill:${fid}`
 }
 
@@ -66,13 +63,9 @@ export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   const rootBackfillWorker = getRootBackfillWorker()
   rootBackfillWorker.run()
 
-  log.info('Starting backfill')
-
   // Save the latest event ID so we can subscribe from there after backfill completes
   const latestEventId = makeLatestEventId()
   await saveLatestEventId(latestEventId)
-  // await getHubs()
-  // await getDbInfo()
 }
 
 /**
@@ -96,7 +89,7 @@ async function getAllFids() {
 export async function createRootBackfillJob(rootFid: number) {
   const {
     linksByDepth: { ['1']: linksSet },
-  } = await getNetworkByFid(rootFid, {
+  } = await getNetworkByFid(rootFid, 2, {
     onProgress(message) {
       log.info(message)
     },
@@ -106,20 +99,22 @@ export async function createRootBackfillJob(rootFid: number) {
 
   addRootTarget(rootFid)
 
-  const links = [rootFid, ...Array.from(linksSet)]
+  const backfillFids = [rootFid, ...Array.from(linksSet)]
 
   const flow = await flowProducer.add({
     name: rootBackfillJobName,
     queueName: rootBackfillQueueName,
-    data: { fid: rootFid, links },
-    children: links.map((fid) => ({
-      queueName: backfillQueueName,
-      name: backfillJobName,
-      data: { fid },
-      opts: {
-        jobId: getBackfillJobId(rootFid),
-      },
-    })),
+    data: { fid: rootFid, backfillCount: backfillFids.length },
+    children: backfillFids.map((fid) => {
+      return {
+        queueName: backfillQueueName,
+        name: backfillJobName,
+        data: { fid },
+        opts: {
+          jobId: getBackfillJobId(fid),
+        },
+      }
+    }),
     opts: {
       jobId: getRootBackfillJobId(rootFid),
     },
