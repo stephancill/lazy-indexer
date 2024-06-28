@@ -62,21 +62,6 @@ export function initExpressApp() {
   serverAdapter.setBasePath('/')
   app.use('/', serverAdapter.getRouter())
 
-  app.get('/stats', async (req, res) => {
-    let latestEventTimestamp
-    const latestEventId = await getLatestEvent()
-
-    const isBackfillActive = (await backfillQueue.getActiveCount()) > 0
-
-    if (latestEventId) {
-      latestEventTimestamp = extractEventTimestamp(latestEventId)
-    }
-
-    return res
-      .status(200)
-      .json({ latestEventId, latestEventTimestamp, isBackfillActive })
-  })
-
   app.post('/root-backfill/:fid', async (req, res) => {
     const { fid: fidRaw } = req.params
     const { force } = req.query
