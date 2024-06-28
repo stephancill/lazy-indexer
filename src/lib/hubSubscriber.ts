@@ -108,7 +108,8 @@ export class BaseHubSubscriber extends HubSubscriber {
     }
     this.log.info(`HubSubscriber ${this.label} connected to hub`)
 
-    const fromId = await this.getLastEventId()
+    // TODO: Fix this
+    const fromId = undefined // await this.getLastEventId()
     if (fromId) {
       this.log.info(
         `HubSubscriber ${this.label} Found last hub event ID: ${fromId}`
