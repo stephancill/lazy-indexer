@@ -1,25 +1,31 @@
 import { FlowProducer, Job, Queue } from 'bullmq'
 
-import { insertCasts } from '../api/cast.js'
+import { deleteCasts, insertCasts } from '../api/cast.js'
 import { saveLatestEventId } from '../api/event.js'
 import { insertRegistrations } from '../api/fid.js'
-import { insertLinks } from '../api/link.js'
+import { deleteLinks, insertLinks } from '../api/link.js'
 import { insertReactions } from '../api/reaction.js'
 import { insertSigners } from '../api/signer.js'
 import { insertStorage } from '../api/storage.js'
 import { insertUserDatas } from '../api/user-data.js'
-import { insertVerifications } from '../api/verification.js'
+import {
+  deleteVerifications,
+  insertVerifications,
+} from '../api/verification.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
-import { getFullProfileFromHub } from '../lib/utils.js'
+import { checkMessages, getFullProfileFromHub } from '../lib/utils.js'
 import { makeLatestEventId } from './event.js'
 import { createQueue, createWorker } from './jobs.js'
 import { getNetworkByFid } from './links-utils.js'
+import { ExtraHubOptions } from './paginate.js'
 import { redis } from './redis.js'
 import { addRootTarget, addTarget, isTarget, removeTarget } from './targets.js'
 
 type BackfillJob = {
   fid: number
+  partial?: boolean
+  removeMessages?: boolean
 }
 
 type RootBackfillJob = {
@@ -44,6 +50,10 @@ export const getRootBackfillWorker = () =>
   })
 
 const flowProducer = new FlowProducer({ connection: redis })
+
+export function getBackfillPartialJobId(fid: number) {
+  return `backfill:partial:${fid}`
+}
 
 export function getBackfillJobId(fid: number) {
   return `backfill:${fid}`
@@ -86,7 +96,10 @@ async function getAllFids() {
   return Array.from({ length: Number(maxFid) }, (_, i) => i + 1)
 }
 
-export async function createRootBackfillJob(rootFid: number) {
+export async function createRootBackfillJob(
+  rootFid: number,
+  childJobOptions: Omit<BackfillJob, 'fid'> = {}
+) {
   const {
     linksByDepth: { ['1']: linksSet },
   } = await getNetworkByFid(rootFid, 2, {
@@ -109,9 +122,10 @@ export async function createRootBackfillJob(rootFid: number) {
       return {
         queueName: backfillQueueName,
         name: backfillJobName,
-        data: { fid },
+        data: { fid, ...childJobOptions },
         opts: {
           jobId: getBackfillJobId(fid),
+          priority: 100,
         },
       }
     }),
@@ -123,29 +137,43 @@ export async function createRootBackfillJob(rootFid: number) {
   return flow
 }
 
+// TODO: Consider separate queue for partial backfills
 export async function queueBackfillJob(
   fid: number,
   queue: Queue<BackfillJob>,
-  priority: number | undefined = 100
+  {
+    priority = 100,
+    partial,
+    removeMessages,
+  }: { priority?: number } & Omit<BackfillJob, 'fid'> = {}
 ) {
   const job = await queue.add(
     backfillJobName,
-    { fid },
-    { jobId: getBackfillJobId(fid), priority }
+    { fid, partial, removeMessages },
+    {
+      jobId: partial ? getBackfillPartialJobId(fid) : getBackfillJobId(fid),
+      priority,
+    }
   )
-  log.info(`Queued backfill job for FID ${fid}: ${job.id}`)
+  // log.info(
+  //   `Queued backfill job for FID ${fid}: ${job.id} ${partial ? '(partial)' : ''}`
+  // )
   return job
 }
 
 async function handleBackfillJob(job: Job<BackfillJob>) {
-  const { fid } = job.data
+  const { fid, partial, removeMessages } = job.data
 
   let startTime = Date.now()
 
   const isAlreadyTarget = await isTarget(fid)
-  addTarget(fid)
 
-  await backfillFid(fid).catch((err) => {
+  if (!partial) addTarget(fid)
+
+  await backfillFid(fid, {
+    partial,
+    hubOptions: { includeRemoveMessages: removeMessages },
+  }).catch((err) => {
     // Undo the target if the backfill fails and it wasn't already a target
     if (!isAlreadyTarget) removeTarget(fid)
 
@@ -154,12 +182,25 @@ async function handleBackfillJob(job: Job<BackfillJob>) {
   })
 
   log.info(
-    `Backfill complete up to FID ${fid} in ${(Date.now() - startTime) / 1000}s`
+    `Backfill complete for FID ${fid}${partial ? ' (partial) ' : ''}${removeMessages ? ' (remove messages) ' : ''}in ${(Date.now() - startTime) / 1000}s`
   )
 }
 
-async function backfillFid(fid: number) {
-  const p = await getFullProfileFromHub(fid).catch((err) => {
+async function backfillFid(
+  fid: number,
+  {
+    partial,
+    hubOptions,
+  }: { partial?: boolean; hubOptions?: ExtraHubOptions } = {}
+) {
+  if (partial) {
+    // Partial backfill only gets user data
+    const userData = await hubClient.getUserDataByFid({ fid })
+    await insertUserDatas(checkMessages(userData, fid))
+    return
+  }
+
+  const p = await getFullProfileFromHub(fid, hubOptions).catch((err) => {
     log.error(err, `Error getting profile for FID ${fid}`)
     return null
   })
@@ -175,4 +216,13 @@ async function backfillFid(fid: number) {
   await insertRegistrations(await p.registrations)
   await insertSigners(await p.signers)
   await insertStorage(await p.storage)
+
+  /** Also process deletes in case they were missed by syncing - only necessary after first backfill */
+  // TODO: Only process deletes from when syncing was down
+  if (hubOptions?.includeRemoveMessages) {
+    await deleteCasts(p.casts)
+    // await deleteReactions(p.reactions) // too slow to be worth it
+    await deleteLinks(p.links)
+    await deleteVerifications(p.verifications)
+  }
 }

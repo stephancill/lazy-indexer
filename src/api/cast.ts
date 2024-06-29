@@ -1,6 +1,11 @@
-import { Message } from '@farcaster/hub-nodejs'
+import {
+  Message,
+  isCastAddMessage,
+  isCastRemoveMessage,
+} from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
+import { getBackfillQueue, queueBackfillJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
 import {
   breakIntoChunks,
@@ -13,7 +18,9 @@ import {
  * @param msgs Raw hub messages
  */
 export async function insertCasts(msgs: Message[]) {
-  const casts = formatCasts(msgs)
+  const castAddMessages = msgs.filter(isCastAddMessage)
+
+  const casts = formatCasts(castAddMessages)
   if (casts.length === 0) return
   const chunks = breakIntoChunks(casts, 1000)
 
@@ -31,15 +38,34 @@ export async function insertCasts(msgs: Message[]) {
       throw error
     }
   }
+
+  if (casts.length > 0) {
+    // Create mention partial backfill jobs - only for recent casts
+    // TODO: Configurable cutoff timestamp
+    const cutoffTimestamp = Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days ago
+    const queue = getBackfillQueue()
+    const mentionedFids = casts
+      .filter((c) => c.timestamp.getTime() > cutoffTimestamp)
+      .map((c) => c.mentions)
+      .map((mentionsArray) => JSON.parse(mentionsArray) as number[])
+      .flat()
+
+    // TODO: How do we keep these up to date?
+    mentionedFids.forEach((fid) =>
+      queueBackfillJob(fid, queue, { partial: true, priority: 110 })
+    )
+  }
 }
 /**
  * Soft delete casts in the database
  * @param msgs Raw hub messages
  */
 export async function deleteCasts(msgs: Message[]) {
+  const castRemoveMessages = msgs.filter((msg) => isCastRemoveMessage(msg))
+
   try {
     await db.transaction().execute(async (trx) => {
-      for (const msg of msgs) {
+      for (const msg of castRemoveMessages) {
         const data = msg.data!
 
         await trx

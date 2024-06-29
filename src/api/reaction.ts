@@ -1,4 +1,8 @@
-import { Message } from '@farcaster/hub-nodejs'
+import {
+  Message,
+  isReactionAddMessage,
+  isReactionRemoveMessage,
+} from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
@@ -13,7 +17,9 @@ import {
  * @param msg Hub event in JSON format
  */
 export async function insertReactions(msgs: Message[]) {
-  const reactions = formatReactions(msgs)
+  const reactionAddMessages = msgs.filter(isReactionAddMessage)
+
+  const reactions = formatReactions(reactionAddMessages)
   if (reactions.length === 0) return
   const chunks = breakIntoChunks(reactions, 1000)
 
@@ -34,9 +40,11 @@ export async function insertReactions(msgs: Message[]) {
 }
 
 export async function deleteReactions(msgs: Message[]) {
+  const removeReactionMessages = msgs.filter(isReactionRemoveMessage)
+
   try {
     await db.transaction().execute(async (trx) => {
-      for (const msg of msgs) {
+      for (const msg of removeReactionMessages) {
         const data = msg.data!
         const reaction = data.reactionBody!
 

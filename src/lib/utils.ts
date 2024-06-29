@@ -16,6 +16,7 @@ import { Tables } from '../db/db.types.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 import {
+  ExtraHubOptions,
   getAllCastsByFid,
   getAllLinksByFid,
   getAllReactionsByFid,
@@ -180,16 +181,21 @@ export function checkOnchainEvent(
  * Index all messages from a profile
  * @param fid Farcaster ID
  */
-export async function getFullProfileFromHub(_fid: number) {
+export async function getFullProfileFromHub(
+  _fid: number,
+  options?: ExtraHubOptions
+) {
   const fid = FidRequest.create({ fid: _fid })
 
   const userData = await hubClient.getUserDataByFid(fid)
-  const verifications = await hubClient.getVerificationsByFid(fid)
+  const verifications = options?.includeRemoveMessages
+    ? await hubClient.getAllVerificationMessagesByFid(fid)
+    : await hubClient.getVerificationsByFid(fid)
 
   return {
-    casts: await getAllCastsByFid(fid),
-    reactions: await getAllReactionsByFid(fid),
-    links: await getAllLinksByFid(fid),
+    casts: await getAllCastsByFid(fid, options),
+    reactions: await getAllReactionsByFid(fid, options),
+    links: await getAllLinksByFid(fid, options),
     userData: checkMessages(userData, _fid),
     verifications: checkMessages(verifications, _fid),
 

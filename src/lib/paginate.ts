@@ -11,12 +11,21 @@ import {
 import { hubClient } from './hub-client.js'
 import { MAX_PAGE_SIZE, checkMessages } from './utils.js'
 
-export async function getAllCastsByFid(fid: FidRequest) {
+export type ExtraHubOptions = { includeRemoveMessages?: boolean } | undefined
+
+export async function getAllCastsByFid(
+  fid: FidRequest,
+  options?: ExtraHubOptions
+) {
   const casts: Message[] = new Array()
   let nextPageToken: Uint8Array | undefined
 
+  const f = options?.includeRemoveMessages
+    ? hubClient.getAllCastMessagesByFid
+    : hubClient.getCastsByFid
+
   while (true) {
-    const res = await hubClient.getCastsByFid({
+    const res = await f({
       ...fid,
       pageSize: MAX_PAGE_SIZE,
       pageToken: nextPageToken,
@@ -35,12 +44,19 @@ export async function getAllCastsByFid(fid: FidRequest) {
   return casts
 }
 
-export async function getAllReactionsByFid(fid: FidRequest) {
+export async function getAllReactionsByFid(
+  fid: FidRequest,
+  options?: ExtraHubOptions
+) {
   const reactions: Message[] = new Array()
   let nextPageToken: Uint8Array | undefined
 
+  const f = options?.includeRemoveMessages
+    ? hubClient.getAllReactionMessagesByFid
+    : hubClient.getReactionsByFid
+
   while (true) {
-    const res = await hubClient.getReactionsByFid({
+    const res = await f({
       ...fid,
       pageSize: MAX_PAGE_SIZE,
       pageToken: nextPageToken,
@@ -59,12 +75,19 @@ export async function getAllReactionsByFid(fid: FidRequest) {
   return reactions
 }
 
-export async function getAllLinksByFid(fid: FidRequest) {
+export async function getAllLinksByFid(
+  fid: FidRequest,
+  options?: ExtraHubOptions
+) {
   const links: Message[] = new Array()
   let nextPageToken: Uint8Array | undefined
 
+  const f = options?.includeRemoveMessages
+    ? hubClient.getAllLinkMessagesByFid
+    : hubClient.getLinksByFid
+
   while (true) {
-    const res = await hubClient.getLinksByFid({
+    const res = await f({
       ...fid,
       pageSize: MAX_PAGE_SIZE,
       pageToken: nextPageToken,

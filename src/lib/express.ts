@@ -1,11 +1,9 @@
 import { createBullBoard } from '@bull-board/api'
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js'
 import { ExpressAdapter } from '@bull-board/express'
-import { extractEventTimestamp } from '@farcaster/hub-nodejs'
 import express from 'express'
 import humanizeDuration from 'humanize-duration'
 
-import { getLatestEvent } from '../api/event.js'
 import {
   createRootBackfillJob,
   getBackfillJobId,
@@ -52,6 +50,9 @@ export function initExpressApp() {
       waitingCount: waitingChildren.length,
       childCount,
       done: isDone,
+      elapsed: humanizeDuration((job.finishedOn || Date.now()) - startTime, {
+        round: true,
+      }),
     }
   }
 
@@ -64,7 +65,7 @@ export function initExpressApp() {
 
   app.post('/root-backfill/:fid', async (req, res) => {
     const { fid: fidRaw } = req.params
-    const { force } = req.query
+    const { force, initial } = req.query
     const fid = parseInt(fidRaw)
 
     const rootBackfillJobId = getRootBackfillJobId(fid)
@@ -79,12 +80,23 @@ export function initExpressApp() {
 
     if (job) {
       log.info(`Removing existing root backfill job for FID ${fid}`)
-      await job.remove({ removeChildren: true })
+      try {
+        await job.remove({ removeChildren: true })
+      } catch (error) {
+        log.error(error)
+        return res.status(500).json({
+          error:
+            error instanceof Error ? error.message : 'Something went wrong',
+        })
+      }
     }
 
     log.info(`Creating root backfill job for FID ${fid}`)
 
-    const jobNode = await createRootBackfillJob(fid)
+    const jobNode = await createRootBackfillJob(fid, {
+      // TODO: detect if first backfill and remove messages
+      removeMessages: initial !== 'true',
+    })
 
     return res.status(200).json({ jobId: rootBackfillJobId, jobNode })
   })
@@ -120,7 +132,7 @@ export function initExpressApp() {
       await job.remove()
     }
 
-    job = await queueBackfillJob(fid, backfillQueue, 1)
+    job = await queueBackfillJob(fid, backfillQueue, { priority: 1 })
 
     return res.status(200).json(job)
   })

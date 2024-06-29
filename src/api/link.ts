@@ -1,9 +1,14 @@
-import { Message } from '@farcaster/hub-nodejs'
+import {
+  Message,
+  isLinkAddMessage,
+  isLinkRemoveMessage,
+} from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { getBackfillQueue, queueBackfillJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
 import { isRootTarget } from '../lib/targets.js'
+import { CallSource } from '../lib/types.js'
 import {
   breakIntoChunks,
   farcasterTimeToDate,
@@ -12,9 +17,11 @@ import {
 
 export async function insertLinks(
   msgs: Message[],
-  source: 'stream' | 'backfill' = 'backfill'
+  source: CallSource = 'backfill'
 ) {
-  const links = formatLinks(msgs)
+  const addLinkMessages = msgs.filter(isLinkAddMessage)
+
+  const links = formatLinks(addLinkMessages)
   if (links.length === 0) return
   const chunks = breakIntoChunks(links, 1000)
 
@@ -47,9 +54,11 @@ export async function insertLinks(
 }
 
 export async function deleteLinks(msgs: Message[]) {
+  const removeLinkMessages = msgs.filter(isLinkRemoveMessage)
+
   try {
     await db.transaction().execute(async (trx) => {
-      for (const msg of msgs) {
+      for (const msg of removeLinkMessages) {
         const data = msg.data!
 
         await trx

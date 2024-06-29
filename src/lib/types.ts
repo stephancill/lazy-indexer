@@ -8,3 +8,5 @@ export type HubClient = {
 export type ProcessResult = {
   skipped: boolean
 }
+
+export type CallSource = 'stream' | 'backfill'

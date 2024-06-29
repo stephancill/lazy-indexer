@@ -1,4 +1,8 @@
-import { Message } from '@farcaster/hub-nodejs'
+import {
+  Message,
+  isVerificationAddAddressMessage,
+  isVerificationRemoveMessage,
+} from '@farcaster/hub-nodejs'
 
 import { db } from '../db/kysely.js'
 import { log } from '../lib/logger.js'
@@ -9,7 +13,9 @@ import { farcasterTimeToDate, formatVerifications } from '../lib/utils.js'
  * @param msg Hub event in JSON format
  */
 export async function insertVerifications(msgs: Message[]) {
-  const verifications = formatVerifications(msgs)
+  const addVerificationMessages = msgs.filter(isVerificationAddAddressMessage)
+
+  const verifications = formatVerifications(addVerificationMessages)
   if (verifications.length === 0) return
 
   try {
@@ -31,9 +37,11 @@ export async function insertVerifications(msgs: Message[]) {
  * @param msg Hub event in JSON format
  */
 export async function deleteVerifications(msgs: Message[]) {
+  const removeVerificationMessages = msgs.filter(isVerificationRemoveMessage)
+
   try {
     await db.transaction().execute(async (trx) => {
-      for (const msg of msgs) {
+      for (const msg of removeVerificationMessages) {
         const data = msg.data!
         const address = data.verificationRemoveBody!.address
 
