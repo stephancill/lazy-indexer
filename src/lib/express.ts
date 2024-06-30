@@ -5,12 +5,14 @@ import express from 'express'
 import humanizeDuration from 'humanize-duration'
 
 import {
-  createRootBackfillJob,
   getBackfillJobId,
   getBackfillQueue,
   getRootBackfillJobId,
+  getRootBackfillPlaceholderJobId,
   getRootBackfillQueue,
+  handleRootBackfillJob,
   queueBackfillJob,
+  queueRootBackfillJob,
 } from './backfill.js'
 import { log } from './logger.js'
 
@@ -22,20 +24,20 @@ export function initExpressApp() {
   const rootBackfillQueue = getRootBackfillQueue()
 
   async function getRootBackfillStatus(fid: number) {
-    const rootBackfillJobId = getRootBackfillJobId(fid)
-    const job = await rootBackfillQueue.getJob(rootBackfillJobId)
+    const placeholderJobId = getRootBackfillPlaceholderJobId(fid)
+    const placeholderJob = await rootBackfillQueue.getJob(placeholderJobId)
 
-    if (!job) {
+    if (!placeholderJob) {
       return null
     }
 
     const allWaiting = await backfillQueue.getJobs(['waiting', 'prioritized'])
     const waitingChildren = allWaiting.filter(
-      (job) => job.parent?.id === rootBackfillJobId
+      (job) => job.parent?.id === placeholderJobId
     )
 
-    const startTime = job.timestamp
-    const childCount = job.data.backfillCount
+    const startTime = placeholderJob.timestamp
+    const childCount = placeholderJob.data.backfillCount!
     const completedCount = childCount - waitingChildren.length
     const averageTimePerChild = (Date.now() - startTime) / completedCount
     const estimatedTimeRemaining = averageTimePerChild * waitingChildren.length
@@ -50,9 +52,12 @@ export function initExpressApp() {
       waitingCount: waitingChildren.length,
       childCount,
       done: isDone,
-      elapsed: humanizeDuration((job.finishedOn || Date.now()) - startTime, {
-        round: true,
-      }),
+      elapsed: humanizeDuration(
+        (placeholderJob.finishedOn || Date.now()) - startTime,
+        {
+          round: true,
+        }
+      ),
     }
   }
 
@@ -68,7 +73,7 @@ export function initExpressApp() {
     const { force, initial } = req.query
     const fid = parseInt(fidRaw)
 
-    const rootBackfillJobId = getRootBackfillJobId(fid)
+    const rootBackfillJobId = getRootBackfillPlaceholderJobId(fid)
 
     const job = await rootBackfillQueue.getJob(rootBackfillJobId)
 
@@ -93,9 +98,11 @@ export function initExpressApp() {
 
     log.info(`Creating root backfill job for FID ${fid}`)
 
-    const jobNode = await createRootBackfillJob(fid, {
-      // TODO: detect if first backfill and remove messages
-      removeMessages: initial !== 'true',
+    const jobNode = await queueRootBackfillJob(fid, rootBackfillQueue, {
+      childOptions: {
+        // TODO: detect if first backfill and remove messages
+        removeMessages: initial !== 'true',
+      },
     })
 
     return res.status(200).json({ jobId: rootBackfillJobId, jobNode })

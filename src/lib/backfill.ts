@@ -1,7 +1,7 @@
 import { FlowProducer, Job, Queue } from 'bullmq'
 
 import { deleteCasts, insertCasts } from '../api/cast.js'
-import { saveLatestEventId } from '../api/event.js'
+import { makeLatestEventId, saveLatestEventId } from '../api/event.js'
 import { insertRegistrations } from '../api/fid.js'
 import { deleteLinks, insertLinks } from '../api/link.js'
 import { insertReactions } from '../api/reaction.js'
@@ -15,7 +15,6 @@ import {
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { checkMessages, getFullProfileFromHub } from '../lib/utils.js'
-import { makeLatestEventId } from './event.js'
 import { createQueue, createWorker } from './jobs.js'
 import { getNetworkByFid } from './links-utils.js'
 import { ExtraHubOptions } from './paginate.js'
@@ -30,7 +29,9 @@ type BackfillJob = {
 
 type RootBackfillJob = {
   fid: number
-  backfillCount: number
+  backfillCount?: number
+  placeholder?: boolean
+  childOptions?: Omit<BackfillJob, 'fid'>
 }
 
 const backfillQueueName = 'backfill'
@@ -43,10 +44,16 @@ export const getBackfillWorker = () =>
 const rootBackfillQueueName = 'rootBackfill'
 export const rootBackfillJobName = 'rootBackfill'
 export const getRootBackfillQueue = () =>
-  createQueue<RootBackfillJob>(rootBackfillQueueName)
+  createQueue<RootBackfillJob>(rootBackfillQueueName, {
+    defaultJobOptions: { removeOnComplete: false },
+  })
 export const getRootBackfillWorker = () =>
   createWorker<RootBackfillJob>(rootBackfillQueueName, async (job) => {
-    log.info(`Completed root backfill job for FID ${job.data.fid}`)
+    if (job.data.placeholder) {
+      log.info(`Completed root backfill job for FID ${job.data.fid}`)
+      return
+    }
+    await handleRootBackfillJob(job.data.fid)
   })
 
 const flowProducer = new FlowProducer({ connection: redis })
@@ -61,6 +68,10 @@ export function getBackfillJobId(fid: number) {
 
 export function getRootBackfillJobId(fid: number) {
   return `backfill:root:${fid}`
+}
+
+export function getRootBackfillPlaceholderJobId(fid: number) {
+  return `backfill:root:${fid}:placeholder`
 }
 
 /**
@@ -78,25 +89,7 @@ export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   await saveLatestEventId(latestEventId)
 }
 
-/**
- * Get all fids
- * @returns array of fids
- */
-async function getAllFids() {
-  const maxFidResult = await hubClient.getFids({
-    pageSize: 1,
-    reverse: true,
-  })
-
-  if (maxFidResult.isErr()) {
-    throw new Error('Unable to backfill', { cause: maxFidResult.error })
-  }
-
-  const maxFid = maxFidResult.value.fids[0]
-  return Array.from({ length: Number(maxFid) }, (_, i) => i + 1)
-}
-
-export async function createRootBackfillJob(
+export async function handleRootBackfillJob(
   rootFid: number,
   childJobOptions: Omit<BackfillJob, 'fid'> = {}
 ) {
@@ -117,7 +110,11 @@ export async function createRootBackfillJob(
   const flow = await flowProducer.add({
     name: rootBackfillJobName,
     queueName: rootBackfillQueueName,
-    data: { fid: rootFid, backfillCount: backfillFids.length },
+    data: {
+      fid: rootFid,
+      backfillCount: backfillFids.length,
+      placeholder: true,
+    },
     children: backfillFids.map((fid) => {
       return {
         queueName: backfillQueueName,
@@ -130,7 +127,7 @@ export async function createRootBackfillJob(
       }
     }),
     opts: {
-      jobId: getRootBackfillJobId(rootFid),
+      jobId: getRootBackfillPlaceholderJobId(rootFid),
     },
   })
 
@@ -158,6 +155,20 @@ export async function queueBackfillJob(
   // log.info(
   //   `Queued backfill job for FID ${fid}: ${job.id} ${partial ? '(partial)' : ''}`
   // )
+  return job
+}
+
+export async function queueRootBackfillJob(
+  fid: number,
+  queue: Queue<RootBackfillJob>,
+  options?: Omit<RootBackfillJob, 'fid'>
+) {
+  const job = await queue.add(
+    rootBackfillJobName,
+    { fid, ...options },
+    { jobId: getRootBackfillJobId(fid) }
+  )
+  log.info(`Queued root backfill job for FID ${fid}: ${job.id}`)
   return job
 }
 

@@ -1,9 +1,10 @@
 import {
-  FARCASTER_EPOCH,
   HubEvent,
   HubEventType,
   MessageType,
   OnChainEventType,
+  isMergeOnChainHubEvent,
+  isSignerOnChainEvent,
 } from '@farcaster/hub-nodejs'
 import { Job } from 'bullmq'
 
@@ -15,15 +16,18 @@ import {
   insertReactions,
   pruneReactions,
 } from '../api/reaction.js'
-import { insertSigners } from '../api/signer.js'
+import { decodeSignedKeyRequestMetadata, insertSigners } from '../api/signer.js'
 import { insertStorage } from '../api/storage.js'
 import { insertUserDatas } from '../api/user-data.js'
 import {
   deleteVerifications,
   insertVerifications,
 } from '../api/verification.js'
+import { getRootBackfillQueue, queueRootBackfillJob } from './backfill.js'
 import { log } from './logger.js'
 import { allTargetsKey, isTarget } from './targets.js'
+
+const { TARGET_SIGNER_FID, TARGET_SIGNER_PUBLIC_KEY } = process.env
 
 /**
  * Update the database based on the event type
@@ -39,6 +43,28 @@ export async function handleEventJob(job: Job<Buffer>) {
 }
 
 export async function handleEvent(event: HubEvent) {
+  if (
+    isMergeOnChainHubEvent(event) &&
+    isSignerOnChainEvent(event.mergeOnChainEventBody.onChainEvent)
+  ) {
+    const { requestFid: appFid, requestSigner: appSigner } =
+      decodeSignedKeyRequestMetadata(
+        event.mergeOnChainEventBody.onChainEvent.signerEventBody.metadata
+      )
+    const fid = event.mergeOnChainEventBody.onChainEvent.fid
+
+    const matchesSignerFid =
+      TARGET_SIGNER_FID && appFid === BigInt(TARGET_SIGNER_FID)
+    const matchesSignerPublicKey =
+      TARGET_SIGNER_PUBLIC_KEY && appSigner === TARGET_SIGNER_PUBLIC_KEY
+
+    if (matchesSignerFid || matchesSignerPublicKey) {
+      // Queue root backfill job
+      const queue = getRootBackfillQueue()
+      queueRootBackfillJob(fid, queue)
+    }
+  }
+
   const fid =
     event.mergeMessageBody?.message?.data?.fid ||
     event.mergeOnChainEventBody?.onChainEvent?.fid ||
@@ -156,21 +182,4 @@ export async function handleEvent(event: HubEvent) {
       break
     }
   }
-}
-
-export function makeLatestEventId() {
-  const seq = 0
-  const now = Date.now()
-  const timestamp = now - FARCASTER_EPOCH
-  const SEQUENCE_BITS = 12
-
-  const binaryTimestamp = timestamp.toString(2)
-  let binarySeq = seq.toString(2)
-  if (binarySeq.length) {
-    while (binarySeq.length < SEQUENCE_BITS) {
-      binarySeq = `0${binarySeq}`
-    }
-  }
-
-  return parseInt(binaryTimestamp + binarySeq, 2)
 }
