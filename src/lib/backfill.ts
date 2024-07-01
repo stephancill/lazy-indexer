@@ -44,9 +44,7 @@ export const getBackfillWorker = () =>
 const rootBackfillQueueName = 'rootBackfill'
 export const rootBackfillJobName = 'rootBackfill'
 export const getRootBackfillQueue = () =>
-  createQueue<RootBackfillJob>(rootBackfillQueueName, {
-    defaultJobOptions: { removeOnComplete: false },
-  })
+  createQueue<RootBackfillJob>(rootBackfillQueueName)
 export const getRootBackfillWorker = () =>
   createWorker<RootBackfillJob>(rootBackfillQueueName, async (job) => {
     if (job.data.placeholder) {

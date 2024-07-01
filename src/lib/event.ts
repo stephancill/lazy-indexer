@@ -47,21 +47,27 @@ export async function handleEvent(event: HubEvent) {
     isMergeOnChainHubEvent(event) &&
     isSignerOnChainEvent(event.mergeOnChainEventBody.onChainEvent)
   ) {
-    const { requestFid: appFid, requestSigner: appSigner } =
-      decodeSignedKeyRequestMetadata(
-        event.mergeOnChainEventBody.onChainEvent.signerEventBody.metadata
+    try {
+      const { requestFid: appFid, requestSigner: appSigner } =
+        decodeSignedKeyRequestMetadata(
+          event.mergeOnChainEventBody.onChainEvent.signerEventBody.metadata
+        )
+      const fid = event.mergeOnChainEventBody.onChainEvent.fid
+
+      const matchesSignerFid =
+        TARGET_SIGNER_FID && appFid === BigInt(TARGET_SIGNER_FID)
+      const matchesSignerPublicKey =
+        TARGET_SIGNER_PUBLIC_KEY && appSigner === TARGET_SIGNER_PUBLIC_KEY
+
+      if (matchesSignerFid || matchesSignerPublicKey) {
+        // Queue root backfill job
+        const queue = getRootBackfillQueue()
+        queueRootBackfillJob(fid, queue)
+      }
+    } catch (error) {
+      log.error(
+        `Error processing signer event: ${error instanceof Error ? error.message : 'Unknown'}`
       )
-    const fid = event.mergeOnChainEventBody.onChainEvent.fid
-
-    const matchesSignerFid =
-      TARGET_SIGNER_FID && appFid === BigInt(TARGET_SIGNER_FID)
-    const matchesSignerPublicKey =
-      TARGET_SIGNER_PUBLIC_KEY && appSigner === TARGET_SIGNER_PUBLIC_KEY
-
-    if (matchesSignerFid || matchesSignerPublicKey) {
-      // Queue root backfill job
-      const queue = getRootBackfillQueue()
-      queueRootBackfillJob(fid, queue)
     }
   }
 

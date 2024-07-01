@@ -41,9 +41,9 @@ export function initExpressApp() {
     const completedCount = childCount - waitingChildren.length
     const averageTimePerChild = (Date.now() - startTime) / completedCount
     const estimatedTimeRemaining = averageTimePerChild * waitingChildren.length
-    const etaString = humanizeDuration(estimatedTimeRemaining, {
+    const etaString = `${humanizeDuration(estimatedTimeRemaining, {
       round: true,
-    })
+    })} remaining`
     const isDone = waitingChildren.length === 0
 
     return {
@@ -73,9 +73,11 @@ export function initExpressApp() {
     const { force, initial } = req.query
     const fid = parseInt(fidRaw)
 
-    const rootBackfillJobId = getRootBackfillPlaceholderJobId(fid)
+    const rootBackfillJobPlaceholderId = getRootBackfillPlaceholderJobId(fid)
+    const rootBackfillJobId = getRootBackfillJobId(fid)
 
-    const job = await rootBackfillQueue.getJob(rootBackfillJobId)
+    const job = await rootBackfillQueue.getJob(rootBackfillJobPlaceholderId)
+    const rootBackfillJob = await rootBackfillQueue.getJob(rootBackfillJobId)
 
     if (job && !force) {
       log.info(`Root backfill job already exists for FID ${fid}`)
@@ -86,6 +88,7 @@ export function initExpressApp() {
     if (job) {
       log.info(`Removing existing root backfill job for FID ${fid}`)
       try {
+        await rootBackfillQueue.remove(getRootBackfillJobId(fid))
         await job.remove({ removeChildren: true })
       } catch (error) {
         log.error(error)
@@ -105,7 +108,9 @@ export function initExpressApp() {
       },
     })
 
-    return res.status(200).json({ jobId: rootBackfillJobId, jobNode })
+    return res
+      .status(200)
+      .json({ jobId: rootBackfillJobPlaceholderId, jobNode })
   })
 
   app.get('/root-backfill/:fid', async (req, res) => {
