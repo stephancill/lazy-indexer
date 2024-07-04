@@ -6,13 +6,14 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf ./dist",
-    "stream": "tsc && node ./dist/index.js",
+    "stream": "tsc && LOG_LEVEL=debug node ./dist/index.js",
     "dev": "tsc && node ./dist/index.js",
     "backfill": "tsc && node ./dist/index.js --backfill",
     "migrate": "tsc && node ./dist/db/migrator.js"
   },
   "dependencies": {
-    "@bull-board/express": "^5.16.0",
+    "@bull-board/api": "^5.20.5",
+    "@bull-board/express": "^5.20.5",
     "@farcaster/hub-nodejs": "^0.11.17",
     "bullmq": "^5.7.6",
     "cli-progress": "^3.12.0",
@@ -22,11 +23,13 @@
     "humanize-duration": "^3.32.1",
     "ioredis": "^5.4.1",
     "kysely": "^0.27.2",
+    "neverthrow": "^6.2.2",
     "pg": "^8.11.3",
     "pg-pool": "^3.6.1",
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",
-    "tiny-typed-emitter": "^2.1.0"
+    "tiny-typed-emitter": "^2.1.0",
+    "viem": "^2.17.0"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
