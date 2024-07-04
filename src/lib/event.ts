@@ -43,6 +43,8 @@ export async function handleEventJob(job: Job<Buffer>) {
 }
 
 export async function handleEvent(event: HubEvent) {
+  let isAppSignerEvent = false
+
   if (
     isMergeOnChainHubEvent(event) &&
     isSignerOnChainEvent(event.mergeOnChainEventBody.onChainEvent)
@@ -60,9 +62,13 @@ export async function handleEvent(event: HubEvent) {
         TARGET_SIGNER_PUBLIC_KEY && appSigner === TARGET_SIGNER_PUBLIC_KEY
 
       if (matchesSignerFid || matchesSignerPublicKey) {
+        log.debug(
+          `Event for target signer FID ${appFid} and public key ${appSigner}`
+        )
         // Queue root backfill job
         const queue = getRootBackfillQueue()
         queueRootBackfillJob(fid, queue)
+        isAppSignerEvent = true
       }
     } catch (error) {
       log.error(
@@ -78,7 +84,7 @@ export async function handleEvent(event: HubEvent) {
     event.pruneMessageBody?.message?.data?.fid ||
     event.revokeMessageBody?.message?.data?.fid
 
-  if (fid && !(await isTarget(fid, allTargetsKey))) {
+  if (fid && !(await isTarget(fid, allTargetsKey)) && !isAppSignerEvent) {
     // log.debug('Skipping event for unknown FID ' + fid)
     return
   }
