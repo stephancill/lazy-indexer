@@ -72,7 +72,7 @@ export async function handleEvent(event: HubEvent) {
       }
     } catch (error) {
       log.error(
-        `Error processing signer event: ${error instanceof Error ? error.message : 'Unknown'}`
+        `Error processing signer event: ${error instanceof Error ? error.message : 'Unknown'} ${event.mergeOnChainEventBody.onChainEvent.signerEventBody.metadata}`
       )
     }
   }

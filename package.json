@@ -23,7 +23,6 @@
     "humanize-duration": "^3.32.1",
     "ioredis": "^5.4.1",
     "kysely": "^0.27.2",
-    "neverthrow": "^6.2.2",
     "pg": "^8.11.3",
     "pg-pool": "^3.6.1",
     "pino": "^8.19.0",
