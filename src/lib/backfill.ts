@@ -1,20 +1,20 @@
 import { FlowProducer, Job, Queue } from 'bullmq'
 
-import { deleteCasts, insertCasts } from '../api/cast.js'
-import { makeLatestEventId, saveLatestEventId } from '../api/event.js'
-import { insertRegistrations } from '../api/fid.js'
-import { deleteLinks, insertLinks } from '../api/link.js'
-import { insertReactions } from '../api/reaction.js'
-import { insertSigners } from '../api/signer.js'
-import { insertStorage } from '../api/storage.js'
-import { insertUserDatas } from '../api/user-data.js'
-import {
-  deleteVerifications,
-  insertVerifications,
-} from '../api/verification.js'
 import { hubClient } from '../lib/hub-client.js'
 import { log } from '../lib/logger.js'
 import { checkMessages, getFullProfileFromHub } from '../lib/utils.js'
+import { deleteCasts, insertCasts } from '../processors/cast.js'
+import { makeLatestEventId, saveLatestEventId } from '../processors/event.js'
+import { insertRegistrations } from '../processors/fid.js'
+import { deleteLinks, insertLinks } from '../processors/link.js'
+import { insertReactions } from '../processors/reaction.js'
+import { insertSigners } from '../processors/signer.js'
+import { insertStorage } from '../processors/storage.js'
+import { insertUserDatas } from '../processors/user-data.js'
+import {
+  deleteVerifications,
+  insertVerifications,
+} from '../processors/verification.js'
 import { createQueue, createWorker } from './jobs.js'
 import { getNetworkByFid } from './links-utils.js'
 import { ExtraHubOptions } from './paginate.js'

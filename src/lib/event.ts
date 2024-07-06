@@ -8,21 +8,24 @@ import {
 } from '@farcaster/hub-nodejs'
 import { Job } from 'bullmq'
 
-import { deleteCasts, insertCasts, pruneCasts } from '../api/cast.js'
-import { insertRegistrations } from '../api/fid.js'
-import { deleteLinks, insertLinks, pruneLinks } from '../api/link.js'
+import { deleteCasts, insertCasts, pruneCasts } from '../processors/cast.js'
+import { insertRegistrations } from '../processors/fid.js'
+import { deleteLinks, insertLinks, pruneLinks } from '../processors/link.js'
 import {
   deleteReactions,
   insertReactions,
   pruneReactions,
-} from '../api/reaction.js'
-import { decodeSignedKeyRequestMetadata, insertSigners } from '../api/signer.js'
-import { insertStorage } from '../api/storage.js'
-import { insertUserDatas } from '../api/user-data.js'
+} from '../processors/reaction.js'
+import {
+  decodeSignedKeyRequestMetadata,
+  insertSigners,
+} from '../processors/signer.js'
+import { insertStorage } from '../processors/storage.js'
+import { insertUserDatas } from '../processors/user-data.js'
 import {
   deleteVerifications,
   insertVerifications,
-} from '../api/verification.js'
+} from '../processors/verification.js'
 import { getRootBackfillQueue, queueRootBackfillJob } from './backfill.js'
 import { log } from './logger.js'
 import { allTargetsKey, isTarget } from './targets.js'

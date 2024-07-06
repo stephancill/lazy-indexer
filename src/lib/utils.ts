@@ -10,10 +10,10 @@ import {
 import { Insertable } from 'kysely'
 import { bytesToHex } from 'viem'
 
-import { getAllRegistrationsByFid } from '../api/fid.js'
-import { getAllSignersByFid } from '../api/signer.js'
-import { getAllStorageByFid } from '../api/storage.js'
 import { Tables } from '../db/db.types.js'
+import { getAllRegistrationsByFid } from '../processors/fid.js'
+import { getAllSignersByFid } from '../processors/signer.js'
+import { getAllStorageByFid } from '../processors/storage.js'
 import { hubClient } from './hub-client.js'
 import { log } from './logger.js'
 import {
