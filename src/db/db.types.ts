@@ -186,6 +186,35 @@ export type TargetRow = {
   fid: Fid
 }
 
+// Users View Type
+export type UserViewRow = {
+  fid: Fid
+  pfp: string | null
+  display: string | null
+  bio: string | null
+  url: string | null
+  username: string | null
+}
+
+// Casts Enhanced View Type
+export type CastEnhancedViewRow = {
+  fid: Fid
+  hash: Uint8Array
+  parent_fid: Fid | null
+  parent_url: string | null
+  parent_hash: Uint8Array | null
+  root_parent_url: string | null
+  root_parent_hash: Uint8Array | null
+  timestamp: Date
+  text: string
+  embeds: ColumnType<CastEmbedJson[], string, string>
+  mentions: ColumnType<Fid[], string, string>
+  mentions_positions: ColumnType<number[], string, string>
+  author_pfp: string | null
+  author_display: string | null
+  author_username: string | null
+}
+
 // ALL TABLES --------------------------------------------------------------------------------------
 export interface Tables {
   casts: CastRow
@@ -198,4 +227,6 @@ export interface Tables {
   storage: StorageRow
   hubs: HubRow
   targets: TargetRow
+  users: UserViewRow
+  casts_enhanced: CastEnhancedViewRow
 }
