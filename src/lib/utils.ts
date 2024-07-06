@@ -8,6 +8,7 @@ import {
   fromFarcasterTime,
 } from '@farcaster/hub-nodejs'
 import { Insertable } from 'kysely'
+import { bytesToHex } from 'viem'
 
 import { getAllRegistrationsByFid } from '../api/fid.js'
 import { getAllSignersByFid } from '../api/signer.js'
@@ -39,6 +40,17 @@ export function formatCasts(msgs: Message[]) {
     const data = msg.data!
     const castAddBody = data.castAddBody!
 
+    const embeds = castAddBody.embeds.map((embed) =>
+      'castId' in embed && embed.castId
+        ? {
+            castId: {
+              fid: embed.castId.fid,
+              hash: bytesToHex(embed.castId.hash),
+            },
+          }
+        : embed
+    )
+
     return {
       timestamp: farcasterTimeToDate(data.timestamp),
       fid: data.fid,
@@ -47,7 +59,7 @@ export function formatCasts(msgs: Message[]) {
       parentHash: castAddBody.parentCastId?.hash,
       parentUrl: castAddBody.parentUrl,
       text: castAddBody.text,
-      embeds: JSON.stringify(castAddBody.embeds),
+      embeds: JSON.stringify(embeds),
       mentions: JSON.stringify(castAddBody.mentions),
       mentionsPositions: JSON.stringify(castAddBody.mentionsPositions),
       signer: msg.signer,
