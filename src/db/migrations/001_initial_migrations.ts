@@ -68,6 +68,7 @@ export const up = async (db: Kysely<any>) => {
     .addColumn('rootParentUrl', 'text')
     .addColumn('parentUrl', 'text')
     .addColumn('text', 'text', (col) => col.notNull())
+    .addColumn('signer', 'bytea', (col) => col.notNull())
     .addColumn('embeds', 'json', (col) => col.notNull().defaultTo(sql`'[]'`))
     .addColumn('mentions', 'json', (col) => col.notNull().defaultTo(sql`'[]'`))
     .addColumn('mentionsPositions', 'json', (col) =>
@@ -144,6 +145,7 @@ export const up = async (db: Kysely<any>) => {
     .addColumn('hash', 'bytea', (col) => col.notNull().unique())
     .addColumn('targetCastHash', 'bytea')
     .addColumn('targetUrl', 'text')
+    .addColumn('signer', 'bytea', (col) => col.notNull())
     .execute()
 
   await db.schema
@@ -191,6 +193,7 @@ export const up = async (db: Kysely<any>) => {
     .addColumn('displayTimestamp', 'timestamptz')
     .addColumn('type', 'text', (col) => col.notNull())
     .addColumn('hash', 'bytea', (col) => col.notNull().unique())
+    .addColumn('signer', 'bytea', (col) => col.notNull())
     .execute()
 
   // VERIFICATIONS
@@ -245,6 +248,7 @@ export const up = async (db: Kysely<any>) => {
     .addColumn('type', 'int2', (col) => col.notNull())
     .addColumn('hash', 'bytea', (col) => col.notNull().unique())
     .addColumn('value', 'text', (col) => col.notNull())
+    .addColumn('signer', 'bytea', (col) => col.notNull())
     .addUniqueConstraint('user_data_fid_type_unique', ['fid', 'type'])
     .execute()
 

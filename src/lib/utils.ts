@@ -50,6 +50,7 @@ export function formatCasts(msgs: Message[]) {
       embeds: JSON.stringify(castAddBody.embeds),
       mentions: JSON.stringify(castAddBody.mentions),
       mentionsPositions: JSON.stringify(castAddBody.mentionsPositions),
+      signer: msg.signer,
     } satisfies Insertable<Tables['casts']>
   })
 }
@@ -67,6 +68,7 @@ export function formatReactions(msgs: Message[]) {
       hash: msg.hash,
       targetCastHash: reaction.targetCastId?.hash,
       targetUrl: reaction.targetUrl,
+      signer: msg.signer,
     } satisfies Insertable<Tables['reactions']>
   })
 }
@@ -92,6 +94,7 @@ export function formatUserDatas(msgs: Message[]) {
       type: userDataAddBody.type,
       hash: msg.hash,
       value: userDataAddBody.value,
+      signer: msg.signer,
     } satisfies Insertable<Tables['userData']>
   })
 }
@@ -126,6 +129,7 @@ export function formatLinks(msgs: Message[]) {
         : null,
       type: link.type,
       hash: msg.hash,
+      signer: msg.signer,
     } satisfies Insertable<Tables['links']>
   })
 }

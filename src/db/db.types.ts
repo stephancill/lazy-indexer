@@ -33,6 +33,7 @@ type CastRow = {
   embeds: ColumnType<CastEmbedJson[], string, string>
   mentions: ColumnType<Fid[], string, string>
   mentionsPositions: ColumnType<number[], string, string>
+  signer: Uint8Array
 }
 
 // REACTIONS ---------------------------------------------------------------------------------------
@@ -52,6 +53,7 @@ type ReactionRow = {
   hash: Uint8Array
   targetCastHash: Uint8Array | null
   targetUrl: string | null
+  signer: Uint8Array
 }
 
 // LINKS -------------------------------------------------------------------------------------------
@@ -70,6 +72,7 @@ type LinkRow = {
   displayTimestamp: Date | null
   type: string
   hash: Uint8Array
+  signer: Uint8Array
 }
 
 // VERIFICATIONS -----------------------------------------------------------------------------------
@@ -103,6 +106,7 @@ type UserDataRow = {
   type: UserDataType
   hash: Uint8Array
   value: string
+  signer: Uint8Array
 }
 
 // FIDS -------------------------------------------------------------------------------------------
