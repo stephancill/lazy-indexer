@@ -7,6 +7,8 @@ import {
 import { db } from '../db/kysely.js'
 import { getBackfillQueue, queueBackfillJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
+import { redis } from '../lib/redis.js'
+import { allTargetsKey } from '../lib/targets.js'
 import {
   breakIntoChunks,
   farcasterTimeToDate,
@@ -51,9 +53,10 @@ export async function insertCasts(msgs: Message[]) {
       .flat()
 
     // TODO: How do we keep these up to date?
-    mentionedFids.forEach((fid) =>
+    mentionedFids.forEach(async (fid) => {
+      if (await redis.sismember(allTargetsKey, fid)) return
       queueBackfillJob(fid, queue, { partial: true, priority: 110 })
-    )
+    })
   }
 }
 /**

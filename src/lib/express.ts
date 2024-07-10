@@ -7,6 +7,7 @@ import humanizeDuration from 'humanize-duration'
 import {
   getBackfillJobId,
   getBackfillQueue,
+  getIndexMessageQueue,
   getRootBackfillJobId,
   getRootBackfillPlaceholderJobId,
   getRootBackfillQueue,
@@ -22,6 +23,7 @@ export function initExpressApp() {
   const serverAdapter = new ExpressAdapter()
   const backfillQueue = getBackfillQueue()
   const rootBackfillQueue = getRootBackfillQueue()
+  const indexMessageQueue = getIndexMessageQueue()
 
   async function getRootBackfillStatus(fid: number) {
     const placeholderJobId = getRootBackfillPlaceholderJobId(fid)
@@ -153,6 +155,7 @@ export function initExpressApp() {
     queues: [
       new BullMQAdapter(backfillQueue),
       new BullMQAdapter(rootBackfillQueue),
+      new BullMQAdapter(indexMessageQueue),
     ],
     serverAdapter,
   })

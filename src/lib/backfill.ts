@@ -1,4 +1,6 @@
+import { MessageType } from '@farcaster/hub-nodejs'
 import { FlowProducer, Job, Queue } from 'bullmq'
+import { hexToBytes } from 'viem'
 
 import { deleteCasts, insertCasts } from '../api/cast.js'
 import { makeLatestEventId, saveLatestEventId } from '../api/event.js'
@@ -34,6 +36,12 @@ type RootBackfillJob = {
   childOptions?: Omit<BackfillJob, 'fid'>
 }
 
+type IndexMessageJob = {
+  hash: `0x${string}`
+  fid: number
+  type: MessageType
+}
+
 const backfillQueueName = 'backfill'
 const backfillJobName = 'backfill'
 export const getBackfillQueue = () =>
@@ -54,6 +62,15 @@ export const getRootBackfillWorker = () =>
     await handleRootBackfillJob(job.data.fid)
   })
 
+export const indexMessageQueueName = 'indexMessage'
+export const indexMessageJobName = 'indexMessage'
+export const getIndexMessageQueue = () =>
+  createQueue<IndexMessageJob>(indexMessageQueueName, {
+    defaultJobOptions: { removeOnFail: true },
+  })
+export const getIndexMessageWorker = () =>
+  createWorker<IndexMessageJob>(indexMessageQueueName, handleIndexMessageJob)
+
 const flowProducer = new FlowProducer({ connection: redis })
 
 export function getBackfillPartialJobId(fid: number) {
@@ -72,6 +89,10 @@ export function getRootBackfillPlaceholderJobId(fid: number) {
   return `backfill:root:${fid}:placeholder`
 }
 
+export function getIndexMessageJobId(hash: string, type: MessageType) {
+  return `indexMessage:${type}:${hash}`
+}
+
 /**
  * Backfill the database with data from a hub. This may take a while.
  */
@@ -81,6 +102,9 @@ export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
 
   const rootBackfillWorker = getRootBackfillWorker()
   rootBackfillWorker.run()
+
+  const indexMessageWorker = getIndexMessageWorker()
+  indexMessageWorker.run()
 
   // Save the latest event ID so we can subscribe from there after backfill completes
   const latestEventId = makeLatestEventId()
@@ -132,6 +156,22 @@ export async function handleRootBackfillJob(
   return flow
 }
 
+export async function queueIndexMessageJob(
+  hash: `0x${string}`,
+  fid: number,
+  type: MessageType,
+  queue: Queue<IndexMessageJob>,
+  options?: { priority?: number }
+) {
+  const job = queue.add(
+    indexMessageJobName,
+    { hash, type, fid },
+    { jobId: getIndexMessageJobId(hash, type), priority: options?.priority }
+  )
+  log.debug(`Queued index message job for hash ${hash}`)
+  return job
+}
+
 // TODO: Consider separate queue for partial backfills
 export async function queueBackfillJob(
   fid: number,
@@ -150,9 +190,9 @@ export async function queueBackfillJob(
       priority,
     }
   )
-  // log.info(
-  //   `Queued backfill job for FID ${fid}: ${job.id} ${partial ? '(partial)' : ''}`
-  // )
+  log.debug(
+    `Queued backfill job for FID ${fid}: ${job.id} ${partial ? '(partial)' : ''}`
+  )
   return job
 }
 
@@ -233,5 +273,22 @@ async function backfillFid(
     // await deleteReactions(p.reactions) // too slow to be worth it
     await deleteLinks(p.links)
     await deleteVerifications(p.verifications)
+  }
+}
+
+async function handleIndexMessageJob(job: Job<IndexMessageJob>) {
+  const { hash: hashString, fid, type } = job.data
+  const hash = hexToBytes(hashString)
+
+  switch (type) {
+    case MessageType.CAST_ADD: {
+      const castResult = await hubClient.getCast({ hash, fid })
+      if (castResult.isErr()) throw new Error(castResult.error.message)
+      await insertCasts([castResult.value])
+      log.debug(`Indexed cast ${fid}:${hashString}`)
+      break
+    }
+    default:
+      log.warn(`Indexing message type ${type} not yet implemented`)
   }
 }

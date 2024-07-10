@@ -1,11 +1,16 @@
 import {
   Message,
+  MessageType,
   isReactionAddMessage,
   isReactionRemoveMessage,
 } from '@farcaster/hub-nodejs'
+import { bytesToHex } from 'viem'
 
 import { db } from '../db/kysely.js'
+import { getIndexMessageQueue, queueIndexMessageJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
+import { redis } from '../lib/redis.js'
+import { allTargetsKey } from '../lib/targets.js'
 import {
   breakIntoChunks,
   farcasterTimeToDate,
@@ -36,6 +41,31 @@ export async function insertReactions(msgs: Message[]) {
       log.error(error, 'ERROR INSERTING REACTIONS')
       throw error
     }
+  }
+
+  if (reactions.length > 0) {
+    // Create mention partial backfill jobs - only for recent casts
+    // TODO: Configurable cutoff timestamp
+    const cutoffTimestamp = Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days ago
+    const queue = getIndexMessageQueue()
+    const recentReactions = reactions.filter(
+      (r) => r.timestamp.getTime() > cutoffTimestamp
+    )
+
+    // Check if target fid is not in targets set
+    recentReactions
+      .filter((r) => r.timestamp.getTime() > cutoffTimestamp)
+      .forEach(async (reaction) => {
+        if (!reaction.targetCastHash || !reaction.targetCastFid) return
+        if (await redis.sismember(allTargetsKey, reaction.targetCastFid)) return
+
+        queueIndexMessageJob(
+          bytesToHex(reaction.targetCastHash),
+          reaction.targetCastFid,
+          MessageType.CAST_ADD,
+          queue
+        )
+      })
   }
 }
 
