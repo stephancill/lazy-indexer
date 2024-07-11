@@ -23,7 +23,7 @@ import {
   deleteVerifications,
   insertVerifications,
 } from '../api/verification.js'
-import { getRootBackfillQueue, queueRootBackfillJob } from './backfill.js'
+import { queueRootBackfillJob } from './backfill.js'
 import { log } from './logger.js'
 import { allTargetsKey, isTarget } from './targets.js'
 
@@ -66,8 +66,7 @@ export async function handleEvent(event: HubEvent) {
           `Event for target signer FID ${appFid} and public key ${appSigner}`
         )
         // Queue root backfill job
-        const queue = getRootBackfillQueue()
-        queueRootBackfillJob(fid, queue)
+        queueRootBackfillJob(fid)
         isAppSignerEvent = true
       }
     } catch (error) {

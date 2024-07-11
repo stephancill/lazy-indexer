@@ -7,7 +7,6 @@ import humanizeDuration from 'humanize-duration'
 import {
   getBackfillJobId,
   getBackfillQueue,
-  getIndexMessageQueue,
   getRootBackfillJobId,
   getRootBackfillPlaceholderJobId,
   getRootBackfillQueue,
@@ -23,7 +22,6 @@ export function initExpressApp() {
   const serverAdapter = new ExpressAdapter()
   const backfillQueue = getBackfillQueue()
   const rootBackfillQueue = getRootBackfillQueue()
-  const indexMessageQueue = getIndexMessageQueue()
 
   async function getRootBackfillStatus(fid: number) {
     const placeholderJobId = getRootBackfillPlaceholderJobId(fid)
@@ -103,7 +101,7 @@ export function initExpressApp() {
 
     log.info(`Creating root backfill job for FID ${fid}`)
 
-    const jobNode = await queueRootBackfillJob(fid, rootBackfillQueue, {
+    const jobNode = await queueRootBackfillJob(fid, {
       childOptions: {
         // TODO: detect if first backfill and remove messages
         removeMessages: initial !== 'true',
@@ -146,7 +144,7 @@ export function initExpressApp() {
       await job.remove()
     }
 
-    job = await queueBackfillJob(fid, backfillQueue, { priority: 1 })
+    job = await queueBackfillJob(fid, { priority: 1 })
 
     return res.status(200).json(job)
   })
@@ -155,7 +153,6 @@ export function initExpressApp() {
     queues: [
       new BullMQAdapter(backfillQueue),
       new BullMQAdapter(rootBackfillQueue),
-      new BullMQAdapter(indexMessageQueue),
     ],
     serverAdapter,
   })

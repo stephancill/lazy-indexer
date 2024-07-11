@@ -8,7 +8,7 @@
     "clean": "rm -rf ./dist",
     "stream": "tsc && LOG_LEVEL=debug node ./dist/index.js",
     "dev": "tsc && node ./dist/index.js",
-    "backfill": "tsc && LOG_LEVEL=info node ./dist/index.js --backfill",
+    "backfill": "tsc && node ./dist/index.js --backfill",
     "migrate": "tsc && node ./dist/db/migrator.js"
   },
   "dependencies": {

@@ -7,7 +7,7 @@ import {
 import { bytesToHex } from 'viem'
 
 import { db } from '../db/kysely.js'
-import { getIndexMessageQueue, queueIndexMessageJob } from '../lib/backfill.js'
+import { queueIndexMessageJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
 import { redis } from '../lib/redis.js'
 import { allTargetsKey } from '../lib/targets.js'
@@ -46,8 +46,7 @@ export async function insertReactions(msgs: Message[]) {
   if (reactions.length > 0) {
     // Create mention partial backfill jobs - only for recent casts
     // TODO: Configurable cutoff timestamp
-    const cutoffTimestamp = Date.now() - 1000 * 60 * 60 * 24 * 7 // 7 days ago
-    const queue = getIndexMessageQueue()
+    const cutoffTimestamp = Date.now() - 1000 * 60 * 60 * 24 * 1 // 1 day ago
     const recentReactions = reactions.filter(
       (r) => r.timestamp.getTime() > cutoffTimestamp
     )
@@ -63,7 +62,7 @@ export async function insertReactions(msgs: Message[]) {
           bytesToHex(reaction.targetCastHash),
           reaction.targetCastFid,
           MessageType.CAST_ADD,
-          queue
+          { priority: 110 }
         )
       })
   }

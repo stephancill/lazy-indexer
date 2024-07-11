@@ -7,8 +7,9 @@ import {
 import { bytesToHex, decodeAbiParameters } from 'viem'
 
 import { db } from '../db/kysely.js'
-import { getBackfillQueue, queueBackfillJob } from '../lib/backfill.js'
+import { queueBackfillJob } from '../lib/backfill.js'
 import { hubClient } from '../lib/hub-client.js'
+import { log } from '../lib/logger.js'
 import { getOnChainEventsByFidInBatchesOf } from '../lib/paginate.js'
 import { MAX_PAGE_SIZE } from '../lib/utils.js'
 
@@ -107,8 +108,10 @@ export async function insertSigners(signers: OnChainEvent[]) {
           .execute()
 
         // Queue signer app profile data partial backfill job
-        const queue = getBackfillQueue()
-        queueBackfillJob(metadataJson.requestFid, queue, {
+        log.debug(
+          `Queueing backfill job for signer app profile data: ${metadataJson.requestFid}`
+        )
+        queueBackfillJob(metadataJson.requestFid, {
           partial: true,
           priority: 110,
         })

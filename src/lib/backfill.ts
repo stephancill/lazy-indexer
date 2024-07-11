@@ -23,31 +23,34 @@ import { ExtraHubOptions } from './paginate.js'
 import { redis } from './redis.js'
 import { addRootTarget, addTarget, isTarget, removeTarget } from './targets.js'
 
+type IndexMessageJob = {
+  hash: `0x${string}`
+  fid: number
+  type: MessageType
+  jobType: 'indexMessage'
+}
+
 type BackfillJob = {
   fid: number
   partial?: boolean
   removeMessages?: boolean
+  jobType: 'backfill'
 }
+
+type QueueJob = BackfillJob | IndexMessageJob
 
 type RootBackfillJob = {
   fid: number
   backfillCount?: number
   placeholder?: boolean
-  childOptions?: Omit<BackfillJob, 'fid'>
-}
-
-type IndexMessageJob = {
-  hash: `0x${string}`
-  fid: number
-  type: MessageType
+  childOptions?: Omit<BackfillJob, 'fid' | 'jobType'>
 }
 
 const backfillQueueName = 'backfill'
 const backfillJobName = 'backfill'
-export const getBackfillQueue = () =>
-  createQueue<BackfillJob>(backfillQueueName)
+export const getBackfillQueue = () => createQueue<QueueJob>(backfillQueueName)
 export const getBackfillWorker = () =>
-  createWorker<BackfillJob>(backfillQueueName, handleBackfillJob)
+  createWorker<QueueJob>(backfillQueueName, handleQueueJob)
 
 const rootBackfillQueueName = 'rootBackfill'
 export const rootBackfillJobName = 'rootBackfill'
@@ -61,15 +64,6 @@ export const getRootBackfillWorker = () =>
     }
     await handleRootBackfillJob(job.data.fid)
   })
-
-export const indexMessageQueueName = 'indexMessage'
-export const indexMessageJobName = 'indexMessage'
-export const getIndexMessageQueue = () =>
-  createQueue<IndexMessageJob>(indexMessageQueueName, {
-    defaultJobOptions: { removeOnFail: true },
-  })
-export const getIndexMessageWorker = () =>
-  createWorker<IndexMessageJob>(indexMessageQueueName, handleIndexMessageJob)
 
 const flowProducer = new FlowProducer({ connection: redis })
 
@@ -103,9 +97,6 @@ export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
   const rootBackfillWorker = getRootBackfillWorker()
   rootBackfillWorker.run()
 
-  const indexMessageWorker = getIndexMessageWorker()
-  indexMessageWorker.run()
-
   // Save the latest event ID so we can subscribe from there after backfill completes
   const latestEventId = makeLatestEventId()
   await saveLatestEventId(latestEventId)
@@ -113,7 +104,7 @@ export async function backfill({ maxFid }: { maxFid?: number | undefined }) {
 
 export async function handleRootBackfillJob(
   rootFid: number,
-  childJobOptions: Omit<BackfillJob, 'fid'> = {}
+  childJobOptions: Omit<BackfillJob, 'fid' | 'jobType'> = {}
 ) {
   const {
     linksByDepth: { ['1']: linksSet },
@@ -141,7 +132,7 @@ export async function handleRootBackfillJob(
       return {
         queueName: backfillQueueName,
         name: backfillJobName,
-        data: { fid, ...childJobOptions },
+        data: { fid, ...childJobOptions, jobType: 'backfill' },
         opts: {
           jobId: getBackfillJobId(fid),
           priority: 100,
@@ -160,12 +151,13 @@ export async function queueIndexMessageJob(
   hash: `0x${string}`,
   fid: number,
   type: MessageType,
-  queue: Queue<IndexMessageJob>,
   options?: { priority?: number }
 ) {
+  const queue = getBackfillQueue()
+
   const job = queue.add(
-    indexMessageJobName,
-    { hash, type, fid },
+    backfillJobName,
+    { hash, type, fid, jobType: 'indexMessage' },
     { jobId: getIndexMessageJobId(hash, type), priority: options?.priority }
   )
   log.debug(`Queued index message job for hash ${hash}`)
@@ -175,16 +167,17 @@ export async function queueIndexMessageJob(
 // TODO: Consider separate queue for partial backfills
 export async function queueBackfillJob(
   fid: number,
-  queue: Queue<BackfillJob>,
   {
     priority = 100,
     partial,
     removeMessages,
-  }: { priority?: number } & Omit<BackfillJob, 'fid'> = {}
+  }: { priority?: number } & Omit<BackfillJob, 'fid' | 'jobType'> = {}
 ) {
+  const queue = getBackfillQueue()
+
   const job = await queue.add(
     backfillJobName,
-    { fid, partial, removeMessages },
+    { fid, partial, removeMessages, jobType: 'backfill' },
     {
       jobId: partial ? getBackfillPartialJobId(fid) : getBackfillJobId(fid),
       priority,
@@ -198,9 +191,10 @@ export async function queueBackfillJob(
 
 export async function queueRootBackfillJob(
   fid: number,
-  queue: Queue<RootBackfillJob>,
-  options?: Omit<RootBackfillJob, 'fid'>
+  options?: Omit<RootBackfillJob, 'fid' | 'jobType'>
 ) {
+  const queue = getRootBackfillQueue()
+
   const job = await queue.add(
     rootBackfillJobName,
     { fid, ...options },
@@ -208,6 +202,14 @@ export async function queueRootBackfillJob(
   )
   log.info(`Queued root backfill job for FID ${fid}: ${job.id}`)
   return job
+}
+
+async function handleQueueJob(job: Job<QueueJob>) {
+  if (job.data.jobType === 'backfill') {
+    return handleBackfillJob(job as Job<BackfillJob>)
+  } else if (job.data.jobType === 'indexMessage') {
+    return handleIndexMessageJob(job as Job<IndexMessageJob>)
+  }
 }
 
 async function handleBackfillJob(job: Job<BackfillJob>) {

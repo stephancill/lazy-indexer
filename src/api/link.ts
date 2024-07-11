@@ -40,14 +40,12 @@ export async function insertLinks(
     }
   }
 
-  const queue = getBackfillQueue()
-
   // Check if message fid is a root target, if so, queue a backfill job for link target
   if (source === 'stream') {
     for (const msg of msgs) {
       const data = msg.data!
       if (data.linkBody?.targetFid && (await isRootTarget(data.fid))) {
-        queueBackfillJob(data.linkBody.targetFid, queue)
+        queueBackfillJob(data.linkBody.targetFid)
       }
     }
   }
