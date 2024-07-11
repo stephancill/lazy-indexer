@@ -8,20 +8,16 @@ export const up = async (db: Kysely<any>) => {
     .as(
       sql`
         SELECT 
-          s.fid,
-          MAX(CASE WHEN ud.type = 1 THEN ud.value END) AS pfp,
-          MAX(CASE WHEN ud.type = 2 THEN ud.value END) AS display,
-          MAX(CASE WHEN ud.type = 3 THEN ud.value END) AS bio,
-          MAX(CASE WHEN ud.type = 5 THEN ud.value END) AS url,
-          MAX(CASE WHEN ud.type = 6 THEN ud.value END) AS username
-        FROM storage s
-        JOIN signers sg ON s.fid = sg.fid
-        LEFT JOIN user_data ud ON s.fid = ud.fid
-        WHERE s.units > 0
-          AND sg.requester_fid IS NOT NULL
-          AND ud.deleted_at IS NULL
-        GROUP BY s.fid
-        ORDER BY s.fid ASC;
+            ud.fid,
+            MAX(CASE WHEN ud.type = 1 THEN ud.value END) AS pfp,
+            MAX(CASE WHEN ud.type = 2 THEN ud.value END) AS display,
+            MAX(CASE WHEN ud.type = 3 THEN ud.value END) AS bio,
+            MAX(CASE WHEN ud.type = 5 THEN ud.value END) AS url,
+            MAX(CASE WHEN ud.type = 6 THEN ud.value END) AS username
+        FROM 
+            user_data ud
+        GROUP BY 
+            ud.fid;
       `
     )
     .execute()
