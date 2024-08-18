@@ -6,7 +6,7 @@ import {
 import type { HubClient } from './types'
 
 // https://github.com/farcasterxyz/hub-monorepo/commit/fb54ef89bb4731002cf3d7f59c8e52b011e58310
-const MAX_RECEIVE_MESSAGE_LENGTH = 10 * 1024 * 1024 // 10mb
+const MAX_RECEIVE_MESSAGE_LENGTH = 1000 * 1024 * 1024 // 1GB (??)
 const defaultOptions = {
   'grpc.max_receive_message_length': MAX_RECEIVE_MESSAGE_LENGTH,
 }
