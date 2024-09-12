@@ -38,6 +38,8 @@ jobs:
           done
 
       # Step 6: Run yarn migrate and other commands in the container
+      - name: Wait for Lazy Indexer to be ready
+        run: sleep 10
       - name: Run migration
         run: docker-compose exec -T lazy-indexer yarn migrate
 
