@@ -32,9 +32,9 @@ jobs:
       # Step 5: Wait for PostgreSQL to be ready
       - name: Wait for PostgreSQL
         run: |
-          until docker-compose exec db pg_isready; do
-            echo "Waiting for PostgreSQL...";
-            sleep 3;
+         until docker-compose exec postgres pg_isready -h postgres -U indexer -d indexer; do
+          echo "Waiting for PostgreSQL...";
+          sleep 3;
           done
 
       # Step 6: Run yarn migrate and other commands in the container
