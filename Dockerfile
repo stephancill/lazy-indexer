@@ -14,7 +14,7 @@ RUN yarn install
 COPY . .
 
 # Set environment variables (replace with actual values or set during runtime)
-ENV DATABASE_URL=postgresql://indexer:password@postgress:5432/indexer
+ENV DATABASE_URL=postgresql://indexer:password@localhost:5432/indexer
 ENV REDIS_URL=redis://localhost:6379
 ENV HUB_REST_URL=https://hub.pinata.cloud
 ENV HUB_RPC=hub-grpc.pinata.cloud
