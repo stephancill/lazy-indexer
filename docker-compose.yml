@@ -38,6 +38,25 @@ services:
     networks:
       - indexer-network
 
+  lazy-indexer:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://indexer:password@postgres:5432/indexer
+      - REDIS_URL=redis://redis:6379
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:3000/ || exit 1']  # Adjust if needed
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - indexer-network
+
 volumes:
   postgres-data:
   redis-data:
