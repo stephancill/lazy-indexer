@@ -32,14 +32,14 @@ jobs:
       # Step 5: Wait for PostgreSQL to be ready
       - name: Wait for PostgreSQL
         run: |
-         until docker-compose exec postgres pg_isready -h postgres -U indexer -d indexer; do
+         until docker-compose exec -T postgres pg_isready -h postgres -U indexer -d indexer; do
           echo "Waiting for PostgreSQL...";
           sleep 3;
           done
 
       # Step 6: Run yarn migrate and other commands in the container
       - name: Run migration
-        run: docker-compose exec lazy-indexer yarn migrate
+        run: docker-compose exec -T lazy-indexer yarn migrate
 
       # Step 7: Log in to Docker Hub using secrets
       - name: Log in to Docker Hub
