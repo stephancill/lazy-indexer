@@ -1,4 +1,4 @@
-name: Build, Backfill, and Publish Docker Image
+name: Build, Test, and Publish Docker Image
 
 on:
   push:
@@ -21,34 +21,41 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # Step 3: Log in to Docker Hub using secrets
+      # Step 3: Set up Docker Compose
+      - name: Set up Docker Compose
+        run: sudo apt-get install docker-compose
+
+      # Step 4: Build and start services using Docker Compose
+      - name: Build and Start Docker Compose
+        run: docker-compose up --build -d
+
+      # Step 5: Wait for PostgreSQL to be ready
+      - name: Wait for PostgreSQL
+        run: |
+          until docker-compose exec db pg_isready; do
+            echo "Waiting for PostgreSQL...";
+            sleep 3;
+          done
+
+      # Step 6: Run yarn migrate and other commands in the container
+      - name: Run migration
+        run: docker-compose exec lazy-indexer yarn migrate
+
+      # Step 7: Log in to Docker Hub using secrets
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 4: Build the Docker image
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false  # We want to run the backfill first, so we won't push yet
-          tags: yourusername/lazy-indexer:latest
-
-      # Step 5: Run the backfill in the container
-      - name: Run backfill in Docker container
-        run: |
-          docker run --rm yourusername/lazy-indexer:latest yarn migrate && yarn backfill
-
-      # Step 6: Push the Docker image to Docker Hub
-      - name: Push Docker image to Docker Hub
+      # Step 8: Push the Docker image to Docker Hub using the secret username
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: gabrieltemtsen/lazy-indexer-1:latest
+          tags: ${{ secrets.DOCKER_USERNAME }}/lazy-indexer:latest-1
 
-      # Step 7: Verify the image is on Docker Hub
+      # Step 9: Verify the image exists on Docker Hub using the secret username
       - name: Image exists on Docker Hub
-        run: docker pull yourusername/lazy-indexer:latest
+        run: docker pull ${{ secrets.DOCKER_USERNAME }}/lazy-indexer:latest-1
