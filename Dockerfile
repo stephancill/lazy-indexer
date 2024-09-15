@@ -17,7 +17,6 @@ COPY . .
 # Expose the port (if required by the application)
 EXPOSE 3005
 
-RUN yarn migrate
 
 # Run the backfill and stream concurrently
 CMD ["sh", "-c", "yarn backfill & yarn stream"]
