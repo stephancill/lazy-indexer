@@ -24,6 +24,7 @@ services:
   redis:
     image: 'redis:7.2-alpine'
     restart: unless-stopped
+    command: --loglevel warning --maxmemory-policy noeviction
     volumes:
       - redis-data:/data
     ports:
