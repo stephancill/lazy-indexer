@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url'
 import { log } from '../lib/logger.js'
 import { db } from './kysely.js'
 
-async function migrateToLatest() {
+export async function migrateToLatest() {
   const migrator = new Migrator({
     db,
     provider: new FileMigrationProvider({
@@ -37,5 +37,3 @@ async function migrateToLatest() {
 
   await db.destroy()
 }
-
-migrateToLatest()
