@@ -1,4 +1,4 @@
-name: Build, Test, and Publish Docker Image
+name: Build and Publish Docker Image
 
 on:
   push:
@@ -13,53 +13,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # Step 3: Create a new builder instance
-      - name: Create builder
-        run: docker buildx create --use
-
-      # Step 4: Set up Docker Compose
-      - name: Set up Docker Compose
-        run: sudo apt-get install docker-compose
-
-      # Step 5: Build and start services using Docker Compose
-      - name: Build and Start Docker Compose
-        run: docker-compose up --build -d
-
-      # Step 6: Wait for PostgreSQL to be ready
-      - name: Wait for PostgreSQL
-        run: |
-          until docker-compose exec -T postgres pg_isready -h postgres -U indexer -d indexer; do
-           echo "Waiting for PostgreSQL...";
-           sleep 3;
-           done
-
-      # Step 7: Check Lazy Indexer logs (optional for debugging)
-      - name: Check Lazy Indexer logs
-        run: docker-compose logs lazy-indexer
-
-      # Step 8: Retry migration for Lazy Indexer
-      - name: Run migration
-        run: |
-          for i in {1..10}; do
-            docker-compose exec -T lazy-indexer yarn migrate && break || (echo "Retrying migration in 5 seconds..." && sleep 5);
-          done
-
-      # Step 9: Log in to Docker Hub using secrets
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 10: Build and Push multi-platform Docker image
       - name: Build and Push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -68,6 +33,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ secrets.DOCKER_USERNAME }}/lazy-indexer:latest
 
-      # Step 11: Verify the image exists on Docker Hub using the secret username
-      - name: Image exists on Docker Hub
+      - name: Verify image on Docker Hub
         run: docker pull ${{ secrets.DOCKER_USERNAME }}/lazy-indexer:latest
