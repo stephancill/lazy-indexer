@@ -11,7 +11,7 @@ import { EventStreamConnection } from './eventStream.js'
 import { Logger } from './logger.js'
 import { RedisClient } from './redis.js'
 import type { HubClient } from './types'
-import { sleep } from './utils.js'
+import { eventIdFromTimestamp, sleep } from './utils.js'
 
 interface HubEventsEmitter {
   event: (hubEvent: HubEvent) => void
@@ -109,7 +109,7 @@ export class BaseHubSubscriber extends HubSubscriber {
     this.log.info(`HubSubscriber ${this.label} connected to hub`)
 
     // TODO: Fix this
-    const fromId = undefined // await this.getLastEventId()
+    const fromId = eventIdFromTimestamp(Date.now()) // await this.getLastEventId()
     if (fromId) {
       this.log.info(
         `HubSubscriber ${this.label} Found last hub event ID: ${fromId}`

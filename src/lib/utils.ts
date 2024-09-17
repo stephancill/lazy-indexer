@@ -1,5 +1,6 @@
 import {
   ContactInfoContentBody,
+  FARCASTER_EPOCH,
   FidRequest,
   HubResult,
   Message,
@@ -237,4 +238,30 @@ export async function inBatchesOf<T>(
 
 export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+const SEQUENCE_BITS = 12
+
+export const extractEventTimestamp = (eventId: number): number => {
+  const binaryEventId = eventId.toString(2)
+  const binaryTimestamp = binaryEventId.slice(
+    0,
+    binaryEventId.length - SEQUENCE_BITS
+  )
+  return parseInt(binaryTimestamp, 2) + FARCASTER_EPOCH
+}
+
+export const eventIdFromTimestamp = (
+  timestamp: number,
+  sequence: number = 0
+): number => {
+  if (sequence < 0 || sequence >= 1 << SEQUENCE_BITS) {
+    throw new Error(
+      `Sequence must be between 0 and ${(1 << SEQUENCE_BITS) - 1}`
+    )
+  }
+  const adjustedTimestamp = timestamp - FARCASTER_EPOCH
+  const timestampBits = adjustedTimestamp.toString(2)
+  const sequenceBits = sequence.toString(2).padStart(SEQUENCE_BITS, '0')
+  return parseInt(timestampBits + sequenceBits, 2)
 }
