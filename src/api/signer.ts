@@ -6,7 +6,7 @@ import {
 } from '@farcaster/hub-nodejs'
 import { bytesToHex, decodeAbiParameters } from 'viem'
 
-import { db } from '../db/kysely.js'
+import { db } from '../db/db.js'
 import { hubClient } from '../lib/hub-client.js'
 import { getOnChainEventsByFidInBatchesOf } from '../lib/paginate.js'
 import { MAX_PAGE_SIZE } from '../lib/utils.js'

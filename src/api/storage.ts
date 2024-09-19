@@ -4,7 +4,7 @@ import {
   isStorageRentOnChainEvent,
 } from '@farcaster/hub-nodejs'
 
-import { db } from '../db/kysely.js'
+import { db } from '../db/db.js'
 import { hubClient } from '../lib/hub-client.js'
 import { getOnChainEventsByFidInBatchesOf } from '../lib/paginate.js'
 import { MAX_PAGE_SIZE, farcasterTimeToDate } from '../lib/utils.js'

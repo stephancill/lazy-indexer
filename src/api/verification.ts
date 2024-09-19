@@ -4,7 +4,7 @@ import {
   isVerificationRemoveMessage,
 } from '@farcaster/hub-nodejs'
 
-import { db } from '../db/kysely.js'
+import { db } from '../db/db.js'
 import { log } from '../lib/logger.js'
 import { farcasterTimeToDate, formatVerifications } from '../lib/utils.js'
 

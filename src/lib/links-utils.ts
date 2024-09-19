@@ -15,6 +15,7 @@ import fastq from 'fastq'
 import { createPublicClient, http, parseAbi } from 'viem'
 import { optimism } from 'viem/chains'
 
+import { log } from './logger.js'
 import { getAllLinksByFid } from './paginate.js'
 
 const HUB_URL = process.env.HUB_REST_URL!
@@ -217,6 +218,8 @@ export async function _getAllLinksByFid(
         },
       })
     : await getAllLinksByFid({ fid })
+
+  log.info(`Got ${linksMessages.length} link messages for fid ${fid}`)
 
   const linksSet = new Set<number>()
 

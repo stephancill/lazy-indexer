@@ -5,9 +5,11 @@ import * as path from 'path'
 import { fileURLToPath } from 'url'
 
 import { log } from '../lib/logger.js'
-import { db } from './kysely.js'
+import { getDbClient } from './db.js'
 
 export async function migrateToLatest() {
+  const db = getDbClient()
+
   const migrator = new Migrator({
     db,
     provider: new FileMigrationProvider({

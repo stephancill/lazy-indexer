@@ -1,4 +1,4 @@
-import { db } from '../db/kysely.js'
+import { db } from '../db/db.js'
 import { redis } from './redis.js'
 
 export const rootTargetsKey = 'targets:root'

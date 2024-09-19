@@ -4,7 +4,7 @@ import {
   isLinkRemoveMessage,
 } from '@farcaster/hub-nodejs'
 
-import { db } from '../db/kysely.js'
+import { db } from '../db/db.js'
 import { getBackfillQueue, queueBackfillJob } from '../lib/backfill.js'
 import { log } from '../lib/logger.js'
 import { isRootTarget } from '../lib/targets.js'
