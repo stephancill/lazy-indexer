@@ -3,6 +3,7 @@ import {
   HubEventType,
   MessageType,
   OnChainEventType,
+  extractEventTimestamp,
   isMergeOnChainHubEvent,
   isSignerOnChainEvent,
 } from '@farcaster/hub-nodejs'
@@ -45,10 +46,19 @@ export async function handleEventJob(job: Job<Buffer>) {
 export async function handleEvent(event: HubEvent) {
   let isAppSignerEvent = false
 
+  const timestamp = extractEventTimestamp(event.id)
+
+  if (isMergeOnChainHubEvent(event)) {
+    log.debug(
+      `Event timestamp: ${new Date(timestamp).toISOString()} type: ${event.type}`
+    )
+  }
+
   if (
     isMergeOnChainHubEvent(event) &&
     isSignerOnChainEvent(event.mergeOnChainEventBody.onChainEvent)
   ) {
+    log.debug('Processing signer event')
     try {
       const { requestFid: appFid, requestSigner: appSigner } =
         decodeSignedKeyRequestMetadata(
